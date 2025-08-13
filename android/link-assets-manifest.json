@@ -1,0 +1,17 @@
+{
+  "migIndex": 1,
+  "data": [
+    {
+      "path": "fonts/Pridi-Bold.ttf",
+      "sha1": "25666d95f577c083a30f5c8b056df05dcd07237f"
+    },
+    {
+      "path": "fonts/Pridi-Regular.ttf",
+      "sha1": "d289ab215baa2a0b71a2fcecd83b295a7ea2d581"
+    },
+    {
+      "path": "fonts/Pridi-SemiBold.ttf",
+      "sha1": "ccaca7cd7dac7f081b31562dd908f3e5dd27dcd6"
+    }
+  ]
+}

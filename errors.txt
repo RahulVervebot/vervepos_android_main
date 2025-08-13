@@ -1,0 +1,1 @@
+https://github.com/react-native-datetimepicker/datetimepicker/issues/811 -> need to add import in a specific file to solve date picker error.

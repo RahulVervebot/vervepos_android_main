@@ -1,0 +1,45 @@
+[
+	{
+		"premium.com": [
+			{
+				"Premium Bellrose": "https://vervebot.ngrok.io,premium_final_db_with_sellorama,11426"
+			},
+			{
+				"Premium Jamaica": "https://www.premiumjamaica.vervebot.io,premium_jamaica_prod,10432"
+			},
+			{
+				"ADI's Bronx": "https://premiumbronx.vervebot.io,premium_bronx_prod,10460"
+			}
+		],
+		"gmail.com": [
+			{
+				"Shahjala": "https://shahjalalpos.vervebot.io,shahjalal_production,48092"
+			}
+		],
+		"ab101.com": [
+			{
+				"ApnaBazar 101": "https://ab101.vervebot.io,ApnaBazar_Demo,56789"
+			}
+		],
+		"sanjhapunjab.com": [
+			{
+				"Sanjha Punjab": "https://sppos.vervebot.io,sanjha_db,11927"
+			}
+		],
+		"mfm.com": [
+			{
+				"MFM Bellrose": "https://faithful-normal-cat.ngrok-free.app,mfm_prod,11426"
+			}
+		],
+		"delight.us": [
+			{
+				"DELIGHT BIGBAZAAR NJ": "https://delightpos.vervebot.io,Delight_DB_20th_July_Prod,07054"
+			}
+		],
+		"vervebot.io": [
+			{
+				"DELIGHT TEST CODE": "https://vervebottesting.ngrok.io,premium_jamaica_prod_02_march_25,12345"
+			}
+		]
+	}
+]

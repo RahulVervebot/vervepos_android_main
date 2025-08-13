@@ -1,0 +1,86 @@
+{
+  "project_info": {
+    "project_number": "879108078971",
+    "project_id": "rideshare-d0efa",
+    "storage_bucket": "rideshare-d0efa.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:879108078971:android:0bc1757e339beef3ea91de",
+        "android_client_info": {
+          "package_name": "com.maharajabarcodeonly"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6i60SBXql0pAKge6OnPobDcBnvKrzr_Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:879108078971:android:76b582e6e3ee6c98ea91de",
+        "android_client_info": {
+          "package_name": "com.odoo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6i60SBXql0pAKge6OnPobDcBnvKrzr_Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:879108078971:android:10b52aba93952456ea91de",
+        "android_client_info": {
+          "package_name": "com.vervebot.rideshare"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6i60SBXql0pAKge6OnPobDcBnvKrzr_Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:879108078971:android:99b049d4333d6708ea91de",
+        "android_client_info": {
+          "package_name": "com.vervepricechecker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6i60SBXql0pAKge6OnPobDcBnvKrzr_Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
