@@ -15,13 +15,13 @@ const CustomDrawer = props => {
   await AsyncStorage.removeItem('loginDb');
    await AsyncStorage.removeItem('is_pos_manager');
     await AsyncStorage.removeItem('username');
+   await AsyncStorage.removeItem('user_role');
     await AsyncStorage.removeItem('password');
     await AsyncStorage.removeItem('storeName');
     await AsyncStorage.removeItem('storeUrl');
     await AsyncStorage.removeItem('access_token').then(() => {
       navigation.navigate('Login');
     });
-
     // console.log('Logging out');
   }
   return (

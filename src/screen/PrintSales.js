@@ -277,7 +277,8 @@ function PrintSales() {
     return true;
   }
 
-  let TempIP_Address = 'http://192.168.1.12:5500/generate-pdf'
+  let TempIP_Address = 'http://192.168.1.32:5500/generate-pdf'
+  // TempIP_Address = 'http://192.168.1.12:5500/generate-pdf'
 
   const PrintProductsDetails = async () => {
     try {
@@ -287,6 +288,7 @@ function PrintSales() {
         logo: imageBase64, // Include the logo image
         box: Object.values(boxData)
       };
+      console.log("TempIP_Address:",TempIP_Address);
       fetch(`${TempIP_Address}`, {
         method: 'POST',
         headers: {
@@ -298,6 +300,7 @@ function PrintSales() {
         .then(res => {
           // console.log('responedata', res)
           let jasonText = isJsonString(res);
+         
           if (jasonText) {
             res = JSON.parse(res);
             if (res?.operation == 'success') {

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useState } from 'react';
-import { View, StyleSheet, Image } from 'react-native';
+import React, { useState,useEffect } from 'react';
+import { View, StyleSheet, Image,ActivityIndicator,Text } from 'react-native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { DrawerActions } from '@react-navigation/native';
 import Home from './screen/Home';
@@ -33,9 +33,7 @@ import BarcodeScannerWithProps from './components/BarcodeScannerWithProps';
 import ProductInformation from './screen/ProductInformation';
 import TopSellingProducts from './screen/TopSellingProducts';
 import TopSellingCategories from './screen/TopSellingCategories';
-
 import CreditSaleReport from './screen/CreditSaleReport';
-
 import SalesReport from './screen/SalesReport';
 import SalesReportClicked from './screen/SalesReportClicked';
 import PromotionList from './screen/PromotionList';
@@ -43,9 +41,7 @@ import Product from './screen/Product';
 import AddProduct from './screen/AddProduct';
 import TopSellingProductDateSelect from './Reports/TopSellingProductDateSelect';
 import TopSellingCategoriesDateSelect from './Reports/TopSellingCategoriesDateSelect';
-
 import CreditSaleReportDateSelection from './Reports/CreditSaleReportDateSelection';
-
 import SalesReportDateSelect from './Reports/SalesReportDateSelect';
 import ProductStockReportDateSelect from './Reports/ProductStockReportDateSelect';
 import ProductStockReport from './Reports/ProductStockReport';
@@ -62,39 +58,287 @@ import MixMatchList from './screen/MixMatchList';
 import MixMatchGroupDetail from './screen/MixMatchGroupDetail'
 import PDFViewer from './components/PDFViewer';
 import ExcelViewer from './components/ExcelViewer';
+import AccountDashboard from './accountant/AccountDashboard';
+import SingleManagerDetails from './accountant/SingleManagerDetails';
+import DepartmentPOData from './manager/components/DepatmentsAccess/DepartmentPOData';
+import PONextWeek from './manager/components/DepatmentsAccess/DepartmentPONextWeek';
+import ManagerDashboard from './manager/components/DepatmentsAccess/ManagerDashboard';
+import VendorManagerDashboard from './manager/components/VendorAccess/ManagerDashboard';
+import DepartmentAccount from './accountant/DepartmentAccount';
+import ManagerRequest from './accountant/departmentAccess/ManagerRequest';
+import SingleDepartment from './accountant/SingleDepartment';
+import DepartmentBudgetCurrentWeek from './accountant/departmentAccess/DepartmentBudgetCurrentWeek';
+import OrderReport from './manager/components/DepatmentsAccess/OrderReport';
+import InvoiceScannerWarehouse from './components/OcrCameraScreen';
+import StoreManagerOrder from './store/ManagerOrder';
+import StoreReport from './store/StoreReport';
+import QuotationReport from './store/QuotationReport';
+import DepartmentBudgetNextWeek from "./accountant/departmentAccess/DepartmentBudgetNextWeek"
+import DepartmentRequestAmount from "./manager/components/DepatmentsAccess/RequestAmount"
+import DepartmentRequestBudgetNextWeek from './manager/components/DepatmentsAccess/RequestNextWeekAmount';
+import DepartmentReport from './manager/components/DepatmentsAccess/DepartmentReport';
+import UpdatePO from './manager/components/DepatmentsAccess/UpdatePO';
+import VendorCatalogue from './manager/components/DepatmentsAccess/VendorCatalogue';
+
+
+
 
 const Drawer = createDrawerNavigator();
 
-const AppStack = ({ navigation, props }) => {
-  const Drawer = createDrawerNavigator();
-  const Stack = createNativeStackNavigator();
-  let is_manager;
-  
-  async function custom_Logout() {
-    await AsyncStorage.removeItem('loginDb');
-    await AsyncStorage.removeItem('access_token').then(() => {
-      navigation.navigate('Home');
-      // console.log('App Logging out');
-    });
+function Root() {
+  const [userRole, setUserRole] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [usernameState, setIUsernameState] = useState();
+  const [appType, setAppType] = useState(null);
+  const [currentweekData, setCurrentWeekData] = useState(null);
+  const [nextweekData, setNextWeekData] = useState(null);
+   const [is_manager, setIs_Manager] = useState(null);
+  useEffect(() => {
+    (async () => {
+      try {
+        // 1) Make sure userRole is empty BEFORE we fetch new data
+        setUserRole(null);
+        setLoading(true);
+        setIs_Manager(null)
+        // 2) Fetch fresh data from AsyncStorage
+        const roleFromStorage = await AsyncStorage.getItem('user_role');
+        const apptype = await AsyncStorage.getItem('apptype');
+       const is_pos_manager = await AsyncStorage.getItem('is_pos_manager');
+       setIs_Manager(is_pos_manager);
+        setAppType(apptype);
+        AsyncStorage.getItem('username')
+          .then(username => {
+            console.log('username : ', username);
+            setIUsernameState(username);
+          })
+        console.log('app user role', roleFromStorage);
+        // 3) Update state
+        setUserRole(roleFromStorage);
+      } catch (err) {
+        console.warn('Error fetching user data:', err);
+      } finally {
+        // 4) We are done loading regardless of success/fail
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    const initializeData = async () => {
+      const currentDate = new Date();
+      const dayOfWeek = currentDate.getDay();
+      const daysUntilMonday = (dayOfWeek + 6) % 7;
+      const startDate = new Date(currentDate);
+      startDate.setDate(currentDate.getDate() - daysUntilMonday);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + 6);
+      endDate.setHours(23, 59, 59, 999);
+      const startDatecurr = `${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(
+        startDate.getDate()
+      ).padStart(2, '0')}-${startDate.getFullYear()}`;
+      const endDatecurr = `${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(
+        endDate.getDate()
+      ).padStart(2, '0')}-${endDate.getFullYear()}`;
+      console.log("startDate",startDate,endDate);
+      const currentData = await fetchManageOrderReport(startDate, endDate, setCurrentWeekData, setLoading);
+
+      console.log('currentweekData:', currentweekData.length);
+
+      //  for next week
+      const daysMonday = (1 - dayOfWeek + 6) % 7;
+      const starnexttDate = new Date(currentDate);
+      starnexttDate.setDate(currentDate.getDate() + daysMonday + 1);
+      starnexttDate.setHours(0, 0, 0, 0);
+      const endnextDate = new Date(starnexttDate);
+      endnextDate.setDate(starnexttDate.getDate() + 6);
+      endnextDate.setHours(23, 59, 59, 999);
+      console.log("starnexttDate",starnexttDate,endnextDate);
+      const nextData = await fetchManageOrderReport(starnexttDate, endnextDate, setNextWeekData, setLoading);
+      console.log("nextData", nextweekData);
+    };
+    initializeData();
+  }, []);
+
+  AsyncStorage.getItem('ManageAccount');
+
+  if (loading === 'true') {
+    return (
+      <ActivityIndicator
+        style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}
+        size="large"
+      />
+    );
   }
-
-  function Root() {
-
-    AsyncStorage.getItem('is_pos_manager')
-      .then(is_pos_manager => {
-        // console.log('is_pos_manager : ', is_pos_manager);
-        is_manager = is_pos_manager;
-      })
-      .catch(error => {
-        alert('some error');
-      });
-
+  else {
     return (
       <Drawer.Navigator
-        initialRouteName="Login"
-        drawerContent={props => <CustomDrawer {...props} />}>
+        // We do *not* set initialRouteName="Login" here,
+        // because "Login" is in the Stack, not the Drawer.
+        drawerContent={(props) => <CustomDrawer {...props} />}
+      >
+        {userRole === 'manager' ?
+          <>
+            <Drawer.Screen
+              name="VendorManagerDashboard"
+              component={VendorManagerDashboard}
+              options={{
+                title: 'MANAGER DASHBOARD',
+                headerRight: () => (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
+                    <Image
+                      source={require('./images/Profileicon.png')}
+                      style={{ width: 24, height: 24, marginRight: 5 }}
+                    />
+                    <Text style={{ color: '#000' }}>{usernameState}</Text>
+                  </View>
+                ),
+              }}
+            />
+          
+            {/* {currentweekData == null ? (
+           
+            ) : null} */}
+                 <Drawer.Screen
+                name="DepartmentPOData"
+                component={DepartmentPOData}
+                options={{ title: 'CREATE PO' }}
+              />
+            <Drawer.Screen
+              name="UpdatePO"
+              component={UpdatePO}
+              options={{ title: 'UPDATE PO' }}
+            />
+   <Drawer.Screen
+                 name="PONextWeek"
+                 component={PONextWeek}
+                 options={{ title: 'PO NEXT WEEK' }}
+               />
+            {/* {nextweekData == null ? (
+              
+            ) : null} */}
 
-        <Drawer.Screen
+            <Drawer.Screen
+              name="DepartmentRequestAmount"
+              component={DepartmentRequestAmount}
+              options={{ title: 'REQUEST BUDGET' }}
+            />
+            <Drawer.Screen
+              name="DepartmentRequestBudgetNextWeek"
+              component={DepartmentRequestBudgetNextWeek}
+              options={{ title: 'NEXT WEEK BUDGET' }}
+            />
+            <Drawer.Screen
+              name="VendorCatalogue"
+              component={VendorCatalogue}
+              options={{ title: 'VENDOR CATALOGUE' }}
+            />
+
+            <Drawer.Screen
+              name="OrderReport"
+              component={OrderReport}
+              options={{ title: 'VENDOR REPORT' }}
+            />
+            <Drawer.Screen
+              name="DepartmentReport"
+              component={DepartmentReport}
+              options={{ title: 'DEPARTMENT REPORT',
+                headerRight: () => (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
+                    <Image
+                      source={require('./images/Profileicon.png')}
+                      style={{ width: 24, height: 24, marginRight: 5 }}
+                    />
+                    <Text style={{ color: '#000' }}>{usernameState}</Text>
+                  </View>
+                ),
+              }
+            }
+            />
+
+            {appType === 'warehouse' ? (
+              <Drawer.Screen
+                name="InvoiceScannerWarehouse"
+                component={InvoiceScannerWarehouse}
+                options={{ title: 'Scan Invoice' }}
+              />
+            ) : null}
+
+          </>
+          :
+          userRole === 'account_manager' ?
+            <>
+              <Drawer.Screen
+                name="DepartmentAccount"
+                component={DepartmentAccount}
+                options={{
+                  title: 'ACCOUNT DASHBOARD',
+
+                  headerRight: () => (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
+                      <Image
+                        source={require('./images/Profileicon.png')}
+                        style={{ width: 24, height: 24, marginRight: 5 }}
+                      />
+                      <Text style={{ color: '#000' }}>{usernameState}</Text>
+                    </View>
+                  ),
+
+                }}
+              />
+              <Drawer.Screen
+                name="OrderReport"
+                component={OrderReport}
+                options={{ title: 'Vendor Report' }}
+              />
+              <Drawer.Screen
+                name="DepartmentReport"
+                component={DepartmentReport}
+                options={{ title: 'Department Report' }}
+              />
+              <Drawer.Screen
+                name="DepartmentBudgetCurrentWeek"
+                component={DepartmentBudgetCurrentWeek}
+                options={{ title: 'Department Budget' }}
+              />
+              <Drawer.Screen
+                name="DepartmentBudgetNextWeek"
+                component={DepartmentBudgetNextWeek}
+                options={{ title: 'Next Week Budget' }}
+              />
+              <Drawer.Screen
+                name="ManagerRequest"
+                component={ManagerRequest}
+                options={{ title: 'Budget Request' }}
+              />
+
+
+            </>
+            :
+            userRole === 'store_manager' ?
+              <>
+                <Drawer.Screen
+                  name="StoreManagerOrder"
+                  component={StoreManagerOrder}
+                  options={{ title: 'Order' }} />
+
+                <Drawer.Screen
+                  name="StoreReport"
+                  component={StoreReport}
+                  options={{ title: 'Manage Orders' }} />
+
+                <Drawer.Screen
+                  name="QuotationReport"
+                  component={QuotationReport}
+                  options={{ title: 'Quotation Reports' }} />
+
+
+
+
+              </>
+              :
+              <>
+               <Drawer.Screen
           name="Home"
           component={Home}
           options={{
@@ -206,32 +450,6 @@ const AppStack = ({ navigation, props }) => {
           component={Reports}
         /> : null}
 
-        {/* {is_manager == 'true' ? <Drawer.Screen
-          options={{
-            title: 'ICMS REPORTS',
-            headerStyle: {
-              backgroundColor: '#3478F5',
-            },
-            headerTintColor: '#fff',
-            headerTitleStyle: {
-              fontWeight: 'bold',
-            },
-            drawerIcon: () => (
-              <Image
-                style={{
-                  height: 30,
-                  width: 30,
-                  marginRight: -20,
-                  marginLeft: -5,
-                }}
-                source={VervebotLogo}
-              />
-            ),
-          }}
-          name="InvoiceReports"
-          component={InvoiceReports}
-        /> : null} */}
-
         {is_manager == 'true' ? (
           <Drawer.Screen
             name="InvoiceReports" // Ensure this matches
@@ -260,14 +478,65 @@ const AppStack = ({ navigation, props }) => {
             }}
           />
         ) : null}
-
+        
+              </>
+        }
       </Drawer.Navigator>
     );
   }
+}
+
+const AppStack = ({ navigation, props }) => {
+  const Drawer = createDrawerNavigator();
+  const Stack = createNativeStackNavigator();
+    const [initialRoute, setInitialRoute] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const checkUserAuth = async () => {
+      try {
+        // const userRole = await AsyncStorage.getItem('user_role');
+        const AccessToken = await AsyncStorage.getItem('access_token');
+        // If a userRole exists, we route them to the "Root" (or any authorized area).
+        // Otherwise, we fall back to "Login".
+        if (AccessToken) {
+          setInitialRoute('Root');
+        } else {
+          setInitialRoute('Login');
+        }
+      } catch (error) {
+        console.error('Error reading user_role from AsyncStorage:', error);
+        // Even on error, we might prefer to route to Login as a fallback
+        setInitialRoute('Login');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkUserAuth();
+  }, []);
+
+    if (isLoading || initialRoute == null) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
+    );
+  }
+
 
   return (
     <NavigationContainer>
       <Stack.Navigator>
+             <Stack.Screen
+          name="Login"
+          component={LoginForm}
+          options={{
+            headerShown: false,
+            gestureEnabled: false,
+          }}
+        />
+
         <Stack.Screen
           name="Root"
           component={Root}
@@ -421,14 +690,7 @@ const AppStack = ({ navigation, props }) => {
           name="TaxCollectionReport"
           component={TaxCollectionReport}
         />
-        <Stack.Screen
-          name="Login"
-          options={{
-            headerShown: false,
-            gestureEnabled: false,
-          }}
-          component={LoginForm}
-        />
+     
         <Stack.Screen
           name="Barcode"
           component={Barcode}
@@ -498,6 +760,21 @@ const AppStack = ({ navigation, props }) => {
             title: 'PDF Viewer',
           }}
         />
+               <Stack.Screen name="AccountDashboard" component={AccountDashboard} options={{ title: 'Select Manager' }} />
+        <Stack.Screen name="SingleManagerDetails" component={SingleManagerDetails}
+          options={{
+            title: 'Manager Details',
+          }}
+        />
+        <Stack.Screen name="ManagerDashboard" component={ManagerDashboard} options={{
+          title: 'Manager Dashboard', headerBackVisible: false // Works in React Navigation v6+
+        }}
+        />
+        <Stack.Screen name="VendorManagerDashboard" component={VendorManagerDashboard} options={{
+          title: 'Manager Dashboard', headerBackVisible: false // Works in React Navigation v6+
+        }}
+        />
+ <Stack.Screen name="SingleDepartment" component={SingleDepartment} />
       </Stack.Navigator>
     </NavigationContainer>
   );
