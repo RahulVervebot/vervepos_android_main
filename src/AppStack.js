@@ -79,10 +79,9 @@ import DepartmentRequestBudgetNextWeek from './manager/components/DepatmentsAcce
 import DepartmentReport from './manager/components/DepatmentsAccess/DepartmentReport';
 import UpdatePO from './manager/components/DepatmentsAccess/UpdatePO';
 import VendorCatalogue from './manager/components/DepatmentsAccess/VendorCatalogue';
-
-
-
-
+import {
+  fetchManageOrderReport,
+} from '../src/functions/DepartmentAccess/function_dep';
 const Drawer = createDrawerNavigator();
 
 function Root() {
@@ -497,12 +496,14 @@ const AppStack = ({ navigation, props }) => {
       try {
         // const userRole = await AsyncStorage.getItem('user_role');
         const AccessToken = await AsyncStorage.getItem('access_token');
+        console.log("token test",AccessToken);
         // If a userRole exists, we route them to the "Root" (or any authorized area).
         // Otherwise, we fall back to "Login".
         if (AccessToken) {
           setInitialRoute('Root');
         } else {
           setInitialRoute('Login');
+        
         }
       } catch (error) {
         console.error('Error reading user_role from AsyncStorage:', error);
@@ -527,7 +528,7 @@ const AppStack = ({ navigation, props }) => {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator>
+       <Stack.Navigator initialRouteName={initialRoute}>
              <Stack.Screen
           name="Login"
           component={LoginForm}

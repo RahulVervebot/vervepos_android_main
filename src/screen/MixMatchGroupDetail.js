@@ -174,6 +174,7 @@ const ZONE_OFFSETS = {
                 if (Object.keys(result).length === 0) {
                     alert('Please Go To Home Page And Try Again.');
                 } else {
+                     console.log("group data result test:", result);
                     const startDate = new Date(result.start_date);
                     const endDate = new Date(result.end_date);
                     setTestStartDate(result.start_date)
@@ -192,7 +193,7 @@ const ZONE_OFFSETS = {
                     const discountProductDetailsPromises = (result.discount_product_ids || []).map(id => fetchDetails(id));
                     const fetchedProductDetails = (await Promise.all(productDetailsPromises)).filter(Boolean);
                     const fetchedDiscountProductDetails = (await Promise.all(discountProductDetailsPromises)).filter(Boolean);
-                    console.log("group data result:", result);
+                   
                  if (isMounted) {
                         setData(result);
                         setNewName(result.name);

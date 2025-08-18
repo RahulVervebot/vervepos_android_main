@@ -15,7 +15,9 @@ import {
     BackHandler,
     KeyboardAvoidingView,
     useColorScheme,
-    Platform
+    Platform,
+    Linking,
+    PermissionsAndroid
   } from 'react-native';
   import React, { useState, useEffect, useRef} from 'react';
   import { useNavigation } from '@react-navigation/native';
@@ -32,6 +34,36 @@ import {
   import DateTimePicker from '@react-native-community/datetimepicker';
   const { DateTime } = require('luxon');
   // import data from '../../APIvariables.json';
+  async function ensureBtScanReady() {
+  if (Platform.OS !== 'android') return true;
+
+  const api = Platform.Version;
+  const wants = api >= 31
+    ? ['android.permission.BLUETOOTH_SCAN','android.permission.BLUETOOTH_CONNECT',
+       PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+       PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION]
+    : [PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
+
+  // 1) Check current state
+  const checks = await Promise.all(wants.map(p => PermissionsAndroid.check(p)));
+  if (checks.every(Boolean)) return true;
+
+  // 2) Request
+  const res = await PermissionsAndroid.requestMultiple(wants);
+
+  const granted = wants.every(p => res[p] === PermissionsAndroid.RESULTS.GRANTED);
+  if (granted) return true;
+
+  // 3) If user ticked “Don’t ask again”, you won’t see a dialog — open settings
+  const blocked = wants.some(p => res[p] === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN);
+  if (blocked) {
+    // Tell user to enable: Settings → Apps → YourApp → Permissions → Nearby devices + Location
+    Linking.openSettings();
+  }
+  return false;
+}
+
+
   const Product = ({ route, clicked }) => {
 
     const colorScheme = useColorScheme(); // This will return either 'light' or 'dark'
@@ -110,10 +142,7 @@ import {
           throw new Error("Store URL not found.");
         }
   
-        // console.log("timezone", timezone);
-        // console.log("access_token", accessToken);
-        // console.log("storeUrl", storeUrl);
-  
+
         // Normalize the timezone value
         let normalizedTimezone = timezone === 'US/Eastern' ? 'America/New_York' : timezone;
   
@@ -216,7 +245,6 @@ import {
       }
     };
   
-  
     const handleClearBarCode = () => {
       setTypedBarcode('');
     };
@@ -232,7 +260,6 @@ import {
     let newArray = redux1(printList);
     newArray = newArray.map(function (x) {
       x.list_price = '$ ' + x.list_price.toFixed(2);
-  
       return x;
     });
   
@@ -494,7 +521,9 @@ import {
     };
   
   
-    const discoverPrinters = () => {
+const discoverPrinters = async () => {
+        const ok = await ensureBtScanReady();
+if (!ok) {
       setPrinters([]);
       setIsDiscovering(true);
       setButtonTitle('Scanning for Zebra Printers ...');
@@ -524,6 +553,7 @@ import {
           setDiscoveredPrintersList(printersArray);
         }
       );
+    }
     };
   
     const Go_clicked = throttle(async () => {

@@ -7,7 +7,9 @@ import VervebotLogo from '../images/vervebotLogo.png';
 import BgImageNew from '../images/BgImageNew.png';
 import { styles } from './AppStyles';
 import Icon from 'react-native-vector-icons/Feather';
+import { dbPromise } from '../firebaseConfig'; // Ensure Firebase config is correct
 import { ToggleButton } from 'react-native-paper';
+import OneSignal from 'react-native-onesignal';
 const stylesmanager = StyleSheet.create({
   toggleButton: {
     borderWidth: 2,
@@ -47,6 +49,7 @@ const LoginForm = ({ }) => {
   const navigation = useNavigation();
   const TCUrl = 'https://vervebot.io/privacy-policy/';
   const [showPassword, setShowPassword] = useState(false);
+   const [budgettype, setBudgetType] = useState('');
     const [toggleChecked, setToggleChecked] = useState('unchecked'); 
   const [userData, setUserData] = useState({
     username: '',
