@@ -82,6 +82,7 @@ import VendorCatalogue from './manager/components/DepatmentsAccess/VendorCatalog
 import {fetchManageOrderReport} from '../src/functions/DepartmentAccess/function_dep';
 
 import ICMS_invoice from './screen/ICMS_invoice.js';
+import ICMS_VendorList from './screen/ICMS_VendorList.js';
 import InvoiceDetails from './screen/InvoiceDetails.js';
 
 const Drawer = createDrawerNavigator();
@@ -474,7 +475,7 @@ function Root() {
                 ),
               }}
               name="ICMS Invoice"
-              component={ICMS_invoice}
+              component={ICMS_VendorList}
             />
 
             {is_manager == 'true' ? (
@@ -600,6 +601,20 @@ const AppStack = ({navigation, props}) => {
           name="InvoiceDetails"
           component={InvoiceDetails}
           options={{title: 'InvoiceDetails'}}
+        />
+        <Stack.Screen
+          name="InvoiceList"
+          component={ICMS_invoice}
+          options={{
+            title: 'Product Information',
+            headerStyle: {
+              backgroundColor: '#3478F5',
+            },
+            headerTintColor: '#fff',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+          }}
         />
 
         <Stack.Screen

@@ -324,7 +324,7 @@ const LoginForm = ({ }) => {
     try {
       setLoading_page(true);
       let usernameAfterEmailSplit = userData.username.split('@')[1];
-      fetch('https://cms.vervebot.io/storelist.json')
+      fetch('https://cms.vervebot.io/storelist.json') //
         .then(x => x.json())
         .then(y => {
           // console.log("storelist data", y);
