@@ -29,9 +29,7 @@ import RNPickerSelect from 'react-native-picker-select';
 import { color } from 'react-native-reanimated';
 import DropdownForCat from './DropdownForCat';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import AddPromotionModal from '../components/AddPromotionModal';
-import AddExpiryModal from '../components/AddExpiryModal';
-import UpdateExpiryModal from '../components/UpdateExpiryModal';
+
 const { DateTime, IANAZone } = require('luxon');
 
 const ProductInformation = ({ item }) => {
@@ -53,6 +51,7 @@ const ProductInformation = ({ item }) => {
   const [VendorselectedItem, setVendorSelectedItem] = useState('');
   const [VendorToggle, setVendorToggle] = useState(false);
   const [promotionToggle, setPromotionToggle] = useState(false);
+  const [promotionsModal, setPromotionModal] = useState(false);
   const [imageModal, setImagemodal] = useState(false);
   const [quantity, setQuantity] = useState(0);
   const [tempPromotion, setTempPromotion] = useState(false);
@@ -79,7 +78,7 @@ const ProductInformation = ({ item }) => {
   const [selectedProductType, setSelectedProductType] = useState("")
   // const [showCost, setIsShowCost] = useState(null);
   // const [isShowCostLoading, setIsShowCostLoading] = useState(true);
-   const [promoVisible, setPromoVisible] = useState(false);
+
   //for product Expiry date
   const [isShowExpiry, setIsShowExpiry] = useState(false)
   const [productExpireModel, setProductExpireModel] = useState(false)
@@ -92,15 +91,11 @@ const ProductInformation = ({ item }) => {
   const [productExpireUpdate, setProductExpireUpdate] = useState([])
   const [showProductExpireDateUpdate, setShowProductExpireUpdate] = useState(false)
   const [showDatePickerFor, setShowDatePickerFor] = useState('')
-  const [addExpiryVisible, setAddExpiryVisible] = useState(false);
-const [updateExpiryVisible, setUpdateExpiryVisible] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-
   var selectedCategoriesChange = "";
 
   // State for Date Picker For Promotion Start.
   const [fetchTimeZoneValue, setfetchTimeZoneValue] = useState('');
-      const ZONE_ALIASES = {
+  const ZONE_ALIASES = {
     'US/Eastern': 'America/New_York',
     'US/Central': 'America/Chicago',
     'US/Mountain': 'America/Denver',
@@ -113,37 +108,12 @@ const [updateExpiryVisible, setUpdateExpiryVisible] = useState(false);
     'US/East-Indiana': 'America/Indiana/Indianapolis'
   };
 
-  const allowedZones = [
-  'UTC', 'America/New_York', 'Asia/Kolkata', 'Europe/London',
-  'America/Chicago','America/Denver','America/Phoenix',
-  'America/Los_Angeles','America/Anchorage','America/Adak',
-  'Pacific/Honolulu','Pacific/Pago_Pago','America/Indiana/Indianapolis'
-];
-
-const ZONE_OFFSETS = {
-  'America/New_York': -4,
-  'America/Chicago': -5,
-  'America/Denver': -6,
-  'America/Phoenix': -7,
-  'America/Los_Angeles': -7,
-  'America/Anchorage': -8,
-  'America/Adak': -9,
-  'Pacific/Honolulu': -10,
-  'Pacific/Pago_Pago': -11,
-  'America/Indiana/Indianapolis': -4,
-  'Asia/Kolkata': 5.5,
-  'Europe/London': 1,
-  'UTC': 0
-};
-
-
   const [startDateValueString, setStartDateValueString] = useState();
   const [startDateValue, setStartDateValue] = useState(new Date());
   const [isStartDatePickerVisible, setStartDatePickerVisibility] = useState(false);
   const [endDateValueString, setEndDateValueString] = useState();
   const [endDateValue, setEndDateValue] = useState(new Date());
   const [isEndDatePickerVisible, setEndDatePickerVisibility] = useState(false);
-
 
   // State for Date Picker For Promotion Ends. 
   const showStartDatePickerUpdate = () => {
@@ -163,19 +133,10 @@ const ZONE_OFFSETS = {
     setStartDatePickerVisibility(false);
   };
 
-const handleStartDateConfirm = (_event, selectedDate) => {
-  if (!selectedDate) return;                // dismissed on Android
-  convertTimestampToZoneForStartDate(selectedDate.getTime());
-  setStartDateValue(selectedDate);          // keep Date object in sync for the picker
-  hideStartDatePicker();
-};
-
-const handleEndDateConfirm = (_event, selectedDate) => {
-  if (!selectedDate) return;
-  convertTimestampToZoneForEndDate(selectedDate.getTime());
-  setEndDateValue(selectedDate);
-  hideEndDatePicker();
-};
+  const handleStartDateConfirm = (event, selectedDate) => {
+    const starttimeStampValueKey = event.nativeEvent.timestamp;
+    const finalstartdate = convertTimestampToZoneForStartDate(starttimeStampValueKey);
+  };
 
   const convertTimestampToZoneForStartDate = (ms) => {
     const myStartDateTime = DateTime.fromMillis(ms, { zone: fetchTimeZoneValue }).startOf('day').toFormat('yyyy-MM-dd HH:mm:ss');
@@ -192,6 +153,10 @@ const handleEndDateConfirm = (_event, selectedDate) => {
     setEndDatePickerVisibility(false);
   };
 
+  const handleEndDateConfirm = (event, selectedDate) => {
+    const endtimeStampValueKey = event.nativeEvent.timestamp;
+    const finalenddate = convertTimestampToZoneForEndDate(endtimeStampValueKey);
+  };
 
   const convertTimestampToZoneForEndDate = (ms) => {
     const myEndDateTime = DateTime.fromMillis(ms, { zone: fetchTimeZoneValue }).endOf('day').toFormat('yyyy-MM-dd HH:mm:ss');
@@ -384,12 +349,7 @@ const handleEndDateConfirm = (_event, selectedDate) => {
           setLoading(false);
         });
     }
-  const handleExpiryAdded = () => {
-  setShowButton(true);      // your existing flag
-  // optionally refresh expiry list from server
-};
-
-
+  
     const handleDeleteProductExpire = async (id) => {
       setProductExpireModelUpdate(false);
       setLoading(true);
@@ -447,29 +407,21 @@ const handleEndDateConfirm = (_event, selectedDate) => {
         });
     }
 
-useEffect(() => {
-  if (!fetchTimeZoneValue) return;
-
-  const zone = fetchTimeZoneValue;
-  const startdatepromo = selectedItem?.promotions?.[0]?.start_date?.split(' ')[0];
-  const enddatepromo   = selectedItem?.promotions?.[0]?.end_date?.split(' ')[0];
-
-  const todayStartStr = DateTime.now().setZone(zone).startOf('day').toFormat('yyyy-MM-dd HH:mm:ss');
-  const todayEndStr   = DateTime.now().setZone(zone).endOf('day').toFormat('yyyy-MM-dd HH:mm:ss');
-
-  const startStr = startdatepromo ? `${startdatepromo} 00:00:00` : todayStartStr;
-  const endStr   = enddatepromo   ? `${enddatepromo} 23:59:59` : todayEndStr;
-
-  setStartDateValueString(startStr);
-  setEndDateValueString(endStr);
-
-  // keep the RN pickers in sync (Date objects)
-  const startDt = DateTime.fromFormat(startStr, 'yyyy-MM-dd HH:mm:ss', { zone: zone });
-  const endDt   = DateTime.fromFormat(endStr,   'yyyy-MM-dd HH:mm:ss', { zone: zone });
-  if (startDt.isValid) setStartDateValue(startDt.toJSDate());
-  if (endDt.isValid)   setEndDateValue(endDt.toJSDate());
-}, [fetchTimeZoneValue, selectedItem]);
-
+    useEffect(() => {
+          const startdatepromo = selectedItem?.promotions[0]?.start_date?.split(' ')[0]
+          const enddatepromo = selectedItem?.promotions[0]?.end_date?.split(' ')[0]
+      // console.log('fetchTimeZoneValue ==========' );
+      let timestampStart = DateTime.fromMillis(Date.now(), { zone: fetchTimeZoneValue }).startOf('day').toFormat('yyyy-MM-dd HH:mm:ss');
+      let timestampEnd = DateTime.fromMillis(Date.now(), { zone: fetchTimeZoneValue }).endOf('day').toFormat('yyyy-MM-dd HH:mm:ss');
+      if (promotionsModal) {
+        setStartDateValueString(startdatepromo ? `${startdatepromo} 00:00:00` : timestampStart );
+        setEndDateValueString(enddatepromo ? `${enddatepromo} 23:59:59`: timestampEnd);
+      }
+      if (productExpireModel) {
+        setProductExpireDate(enddatepromo);
+      }
+  
+    }, [productExpireModel, productExpireModelUpdate, promotionsModal])
 
   const showAlert = () =>
     Alert.alert('Alert', 'Product Not Found', [
@@ -1059,12 +1011,13 @@ useEffect(() => {
     }
   }
 
-  const onProductTypeSelect = (item) => {
-    let name = item === true ? 'lb' : 'Unit';
-    setSelectedProductType(name);
-    setShowButton(true);
-    setModalVisible(false); // close modal
-  };
+  const onProductTypeSelect = (item, index) => {
+    if (item && item != "undefined" && item != "null") {
+      let name = item == "true" ? "lb" : "Unit"
+      setSelectedProductType(name)
+      setShowButton(true);
+    }
+  }
 
   const handlePriceChange = (event, newPrice) => {
     setPrice(newPrice);
@@ -1191,7 +1144,69 @@ useEffect(() => {
     }
   };
 
+  const handlePromotion = async () => {
+    // console.log(startDateValueString, endDateValueString, ' promotion date states ');
+    setLoadingPromo(prev => ({ ...prev, add: true }));
+    await AsyncStorage.getItem('storeUrl')
+      .then(storeUrl => {
+        // console.log('storeUrl : ', storeUrl);
+        current_url = storeUrl;
+      })
+      .catch(error => {
+        alert('some error');
+        setLoading(false);
+      });
 
+    await AsyncStorage.getItem('access_token')
+      .then(access_token => {
+        // console.log('access_token : ', access_token);
+        current_access_token = access_token;
+      })
+      .catch(error => {
+        alert('some error');
+      });
+    var myHeaders = new Headers();
+
+    myHeaders.append('access_token', current_access_token);
+    // myHeaders.append(
+    //   'Cookie',
+    //   'session_id',
+    // );
+    var requestOptions = {
+      method: 'POST',
+      headers: myHeaders,
+      redirect: 'follow',
+      credentials: 'omit', // Ensures cookies are not sent
+    };
+    fetch(
+      `${current_url}/api/add/promotion?fix_amount=${fixedAmount}&product_id=${productId}&start_date=${startDateValueString}&end_date=${endDateValueString}&no_of_products=${no_Of_Product}`,
+      requestOptions,
+    )
+      .then(response => response.text())
+      .then(result => {
+        let jasonText = isJsonString(result);
+        console.log("all fileds:",fixedAmount,startDateValueString,endDateValueString,'no:',no_Of_Product,'id',productId)
+        console.log("Promotion add===============>", result);
+        // getProductDetail()
+        setLoadingPromo(prev => ({ ...prev, add: false }));
+        if (JSON.parse(result).message) {
+          alert(JSON.parse(result).message);
+          // setPromotionModal(false)
+          setShowButton(true)
+        } else {
+          alert('Some error');
+          console.log("some error",JSON.parse(result));
+          // setPromotionModal(false)
+          setShowButton(false)
+        }
+      })
+      .catch(error => {
+        console.log('error', error)
+        setLoadingPromo(prev => ({ ...prev, add: false }));
+      })
+      ;
+    setPromotionModal(false);
+  };
 
   const onToggleSwitch_Is_In_POS = (value) => {
     setAvailable_In_Pos(value);
@@ -1717,55 +1732,97 @@ useEffect(() => {
   
 
 
-      <View
-      style={{
-        flex: 1,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        width: 130,
-      }}>
-      {/* Display current selection */}
-      {/* Trigger Modal */}
-      <TouchableOpacity
-        style={styles.textInputPrice}
-        onPress={() => setModalVisible(true)}>
-        <Text style={{ color: '#000', textAlign: 'center' }}>
-          {selectedProductType}
-        </Text>
-      </TouchableOpacity>
-
-      {/* Modal */}
-      <Modal
-        transparent={true}
-        visible={modalVisible}
-        animationType="slide"
-        onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Select Type</Text>
-
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => onProductTypeSelect(false)}>
-              <Text style={styles.modalText}>Unit</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => onProductTypeSelect(true)}>
-              <Text style={styles.modalText}>lb</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.modalOption, { backgroundColor: '#ddd' }]}
-              onPress={() => setModalVisible(false)}>
-              <Text style={[styles.modalText, { color: 'red' }]}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    </View>
+                      <View
+                        style={{
+                          flex: 1,
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          width: 130,
+                        }}>
+                        <Text
+                          editable={false}
+                          style={[
+                            styles.textInputPrice,
+                            { marginTop: Platform.OS === 'android' ? 10 : 12 },
+                            {
+                              color: '#000',
+                              width: '40%',
+                              textAlign: 'center',
+                            },
+                          ]}>
+                          {selectedProductType}
+                        </Text>
+                        <View
+                          style={{
+                            padding: 10,
+                            borderColor: 'grey',
+                            borderRadius: 8,
+                            borderWidth: 0.5,
+                            width: '50%',
+                            height: 30,
+                            marginLeft: 10,
+                            marginTop: 10,
+                            marginRight: -10,
+                          }}>
+                          <RNPickerSelect
+                            col
+                            style={{
+                              width: 50,
+                              fontSize: 20,
+                              backgroundColor: 'red',
+                              iconContainer: {
+                                top: 0,
+                                right: 17,
+                                width: 20,
+                                height: 30,
+                                color: 'red',
+                              },
+                              inputIOS: {
+                                fontSize: 30,
+                                borderColor: 'gray',
+                                borderRadius: 4,
+                                color: 'white',
+                                paddingRight: 30,
+                                width: 60,
+                                height: 30,
+                                marginTop: -10,
+                                marginLeft: -10,
+                              },
+                            }}
+                            onValueChange={onProductTypeSelect}
+                            items={[
+                              {
+                                label: 'Unit',
+                                value: false,
+                              },
+                              {
+                                label: 'lb',
+                                value: true,
+                              },
+                            ]}
+                            placeholder={{ label: 'SELECT' }}
+                            // itemKey={ {label:selectedProductType} }
+                            Icon={() => {
+                              return (
+                                <View
+                                  style={{
+                                    backgroundColor: 'transparent',
+                                    borderTopWidth: 15,
+                                    borderTopColor: 'gray',
+                                    borderRightWidth: 15,
+                                    borderRightColor: 'transparent',
+                                    borderLeftWidth: 15,
+                                    borderLeftColor: 'transparent',
+                                    width: 20,
+                                    height: 20,
+                                  }}
+                                />
+                              );
+                            }}
+                          />
+                        </View>
+                      </View>
 
                       <TextInput
                         editable={false}
@@ -1881,7 +1938,7 @@ useEffect(() => {
                               setEndDate(futureDate);
 
                             }
-                            setPromoVisible(true);
+                            setPromotionModal(true);
                           }}
                           style={{}}>
                           <Text
@@ -1993,7 +2050,7 @@ useEffect(() => {
                                   </View>
                               <TouchableOpacity
                                 onPress={() => {
-                                  setPromoVisible(true);
+                                  setPromotionModal(true);
                                 }}
                                 style={{
                                   alignSelf: 'center',
@@ -2044,7 +2101,7 @@ useEffect(() => {
                             // ADD PROMOTION CODE 
                             <TouchableOpacity
                               onPress={() => {
-                                setPromoVisible(true)
+                                setPromotionModal(true);
                               }}
                               style={{}}>
                               <Text
@@ -2062,18 +2119,335 @@ useEffect(() => {
                     </View>
                   ) : null}
 
-<AddPromotionModal
-  visible={promoVisible}
-  onClose={() => setPromoVisible(false)}
-  productId={selectedItem?.items?.[0]?.id}   // pass your product id here
-  onSaved={() => {
-    // refresh UI or setShowButton(true) if you need
-    setShowButton(true);
-  }}
-/>
                   {/* Check This setShowLabel Shows Error Why Below */}
                   {/* ACTUAL PROMOTION Model Start*/}
-   
+                  <Modal animationType="slide" transparent={false} visible={promotionsModal} onRequestClose={() => { setShowLabel(!showLabel) }}>
+
+                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+                      <View style={{ marginVertical: '15%', height: '100%', width: '100%', }}>
+
+                        <Text
+                          style={{
+                            fontSize: 25,
+                            alignSelf: 'center',
+                            marginBottom: '10%',
+                            color: '#ad7e05',
+                            marginBottom: 0,
+                          }}>
+                          PROMOTION
+                        </Text>
+
+                        <Image style={{ width: '100%', height: '30%', }}
+                          source={promoImg}
+                          resizeMode="contain"
+                        />
+
+                        <View style={{ backgroundColor: '#fff', shadowOffset: { width: 1, height: 3 }, shadowOpacity: 0.3, shadowRadius: 3, marginHorizontal: '5%', borderColor: '#939596', borderWidth: 0, marginVertical: '2%', padding: '3%', borderRadius: 20 }}>
+
+                          {/* FIXED AMOUNT TEXT INPUT CODE */}
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              // marginHorizontal: '10%',
+                            }}>
+                            <Text
+                              style={{
+                                color: '#000',
+                                fontSize: 16,
+                                fontWeight: '300',
+                              }}>
+                              FIX AMOUNT :
+                            </Text>
+                            <TextInput
+                              keyboardType="numeric"
+                              returnKeyType="done"
+                              onChangeText={e => setFixedAmount(e)}
+                              value={fixedAmount}
+                              placeholder="FIX AMOUNT"
+                              placeholderTextColor="grey"
+                              style={styles.ModalTextInput}
+                            />
+                          </View>
+
+                          {/* NO. OF PRODUCTS TEXT INPUT CODE */}
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              // marginHorizontal: '10%',
+                            }}>
+                            <Text
+                              style={{
+                                color: '#000',
+                                fontSize: 16,
+                                fontWeight: '300',
+                              }}>
+                              NO. OF PRODUCTS :
+                            </Text>
+                            <TextInput
+                              keyboardType="numeric"
+                              returnKeyType="done"
+                              onChangeText={e => setNo_Of_Products(e)}
+                              value={no_Of_Product}
+                              placeholder="NO. OF PRODUCTS"
+                              placeholderTextColor="grey"
+                              style={styles.ModalTextInput}
+                            />
+                          </View>
+                             {/* PROMOTION START AND END DATE */}
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              marginTop: '5%',
+                            }}>
+                            <Text
+                              style={{
+                                color: '#000',
+                                fontSize: 16,
+                                fontWeight: '300',
+                              }}>
+                             PROMOTION START :   {selectedItem?.promotions[0]?.start_date?.split(' ')[0]} 
+                           
+                            </Text>
+                             
+                            
+                          </View>
+                            <View
+                            style={{
+                              flexDirection: 'row',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                               marginTop: '5%',
+                            }}>
+              
+                              <Text
+                              style={{
+                                color: '#000',
+                                fontSize: 16,
+                                fontWeight: '300',
+                              }}>
+                            PROMOTION END :       {selectedItem?.promotions[0]?.end_date?.split(' ')[0]}
+                            </Text>
+                            
+                          </View>
+            
+ <View
+                            style={{
+                              flexDirection: 'row',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              marginTop: '10%',
+                            }}>
+              
+                              <Text
+                              style={{
+                                color: '#000',
+                                fontSize: 16,
+                
+                                fontWeight: '300',
+                              }}>
+                           CHANGE PROMOTION DATE FROM BELOW
+                            </Text>
+                            
+                          </View>
+
+                          {/* The First View Is For Start Date And Second One Is For End Date */}
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                            }}>
+
+                            {/* This Condition Is To Show Either Open Calendar Or Date Picked If First Time Came and No Promotion Is Added Then This Condition Will Be True And Show Open Calendar Button */}
+                            {!isStartDatePickerVisible && (
+                              <>
+                                <Text
+                                  style={{
+                                    color: '#000',
+                                    fontSize: 16,
+                                    fontWeight: '300',
+                                  }}>
+                                  START DATE :
+                                </Text>
+
+                                <TouchableOpacity
+                                  onPress={showStartDatePicker}
+                                  style={{
+                                    backgroundColor: '#fff',
+                                    borderColor: 'grey',
+                                    borderWidth: 0.5,
+                                    borderRadius: 10,
+                                    padding: 10,
+                                    width: '40%',
+                                    alignSelf: 'center',
+                                    marginVertical: '3%',
+                                  }}>
+                                  <Text
+                                    style={{
+                                      fontSize: 16,
+                                      color: '#3784fd',
+                                      textAlign: 'center',
+                                    }}>
+                                    
+                                    {startDateValueString
+                                      ? startDateValueString.split(' ')[0]
+                                      : 'Open Calendar'
+                                    }
+                                  </Text>
+                                </TouchableOpacity>
+                              </>
+                            )}
+
+                            {/* This Condition Is To Show Actual Date Picker Model */}
+                            {isStartDatePickerVisible && (
+                              <>
+                                <Text
+                                  style={{
+                                    fontSize: 16,
+                                    color: '#3784fd',
+                                    textAlign: 'center',
+                                  }}>
+                                  Click Date To Select:
+                                </Text>
+                                <DateTimePicker
+                                  value={startDateValue ? new Date(startDateValue) : new Date()}
+                                  mode="date"
+                                  onChange={(event, selectedDate) => {
+                                    if (event.type === 'set') {
+                                      handleStartDateConfirm(event, selectedDate);
+                                    }
+                                  }}
+                                />
+                              </>
+                            )}
+                         </View>
+                          {/* Spacing Between Start Date And End Date */}
+                          <View style={{ height: 20 }} />
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                            }}>
+                            {!isEndDatePickerVisible && (
+                              <>
+                                <Text
+                                  style={{
+                                    color: '#000',
+                                    fontSize: 16,
+                                    fontWeight: '300',
+                                  }}>
+                                  END DATE :
+                                </Text>
+                                <TouchableOpacity
+                                  onPress={showEndDatePicker}
+                                  style={{
+                                    backgroundColor: '#fff',
+                                    borderColor: 'grey',
+                                    borderWidth: 0.5,
+                                    borderRadius: 10,
+                                    padding: 10,
+                                    width: '40%',
+                                    alignSelf: 'center',
+                                    marginVertical: '3%',
+                                  }}>
+                                  <Text
+                                    style={{
+                                      fontSize: 16,
+                                      color: '#3784fd',
+                                      textAlign: 'center',
+                                    }}>
+                                    {endDateValueString
+                                      ? endDateValueString.split(' ')[0]
+                                      : 'Open Calendar'
+                                    }
+                                  </Text>
+                                </TouchableOpacity>
+                              </>
+                            )}
+                            {/* This Condition Is To Show Actual Date Picker Model */}
+                            {isEndDatePickerVisible && (
+                              <>
+                                <Text
+                                  style={{
+                                    fontSize: 16,
+                                    color: '#3784fd',
+                                    textAlign: 'center',
+                                  }}>
+                                  Click Date To Select:
+                                </Text>
+                                <DateTimePicker
+                                  value={endDateValue ? new Date(endDateValue) : new Date()}
+                                  mode="date"
+                                  onChange={(event, selectedDate) => {
+                                    if (event.type === 'set') {
+                                      handleEndDateConfirm(event, selectedDate);
+                                    }
+                                  }}
+                                />
+                              </>
+                            )}
+                          </View>
+                        </View>
+                        {/* DONE AND CLOSE BUTTONS CODE */}
+                        <View
+                          style={{
+                            justifyContent: 'space-around',
+                            flexDirection: 'row',
+                            marginVertical: '10%',
+                          }}>
+                          <TouchableOpacity
+                            style={{
+                              padding: 15,
+                              backgroundColor: '#3784fd',
+                              borderColor: '#3784fd',
+                              borderWidth: 0.5,
+                              borderRadius: 10,
+                              alignSelf: 'center',
+                              alignItems: 'center',
+                            }}
+                            onPress={() => handlePromotion()}>
+                            <Text
+                              style={{
+                                fontSize: 16,
+                                color: '#fff',
+                                fontWeight: '300',
+                              }}>
+                              DONE
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={{
+                              padding: 12,
+                              backgroundColor: '#fff',
+                              borderColor: '#ff0000',
+                              borderWidth: 0.5,
+                              borderRadius: 10,
+                              alignSelf: 'center',
+                              alignItems: 'center',
+                            }}
+                            onPress={() => setPromotionModal(false)}>
+                            <Text
+                              style={{
+                                fontSize: 16,
+                                color: '#ff0000',
+                                fontWeight: '300',
+                              }}>
+                              CLOSE
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+
+                      </View>
+                    </KeyboardAvoidingView>
+                  </Modal>
 
                   {/* Discount modal end*/}
 
@@ -2738,12 +3112,7 @@ useEffect(() => {
                     <>
                       <TouchableOpacity
                         onPress={() => {
-              if (!productId) {
-      Alert.alert('Product not loaded yet');
-      return;
-    }
-
-                          setAddExpiryVisible(true);
+                          setProductExpireModel(true);
                         }}
                         style={{
                           borderWidth: 1,
@@ -2764,16 +3133,10 @@ useEffect(() => {
                         </Text>
 
                       </TouchableOpacity>
-
-                 
                       {selectedItem.items[0].expiry_details.length > 0 && (
                         <TouchableOpacity
                           onPress={() => {
-                if (!productId) {
-        Alert.alert('Product not loaded yet');
-        return;
-      }
-                            setUpdateExpiryVisible(true);
+                            setProductExpireModelUpdate(true);
                           }}
                           style={{
                             borderWidth: 1,
@@ -2793,7 +3156,6 @@ useEffect(() => {
                             Update/Delete Expiry List
                           </Text>
                         </TouchableOpacity>
-                       
                       )}
                     </>}
                   {/* {this for product expiry end code} */}
@@ -2829,26 +3191,9 @@ useEffect(() => {
                   </TouchableOpacity>
 
                 </View>
-                
               )}
-               <AddExpiryModal
-  visible={addExpiryVisible}
-  onClose={() => setAddExpiryVisible(false)}
-  productId={selectedItem.items[0].id}
-  onSuccess={handleExpiryAdded}
-/>
-
-<UpdateExpiryModal
-  visible={updateExpiryVisible}
-  onClose={() => setUpdateExpiryVisible(false)}
-  productId={selectedItem.items[0].id}
-  expiryList={selectedItem.items[0].expiry_details} // same array you used earlier
-  onDelete={handleDeleteProductExpire}               // optional
-  onSuccess={() => setShowButton(true)}
-/>
             </View>
           )}
-
         </SafeAreaView>
       </ScrollView>
     </KeyboardAvoidingView>

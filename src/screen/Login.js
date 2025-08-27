@@ -6,7 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import VervebotLogo from '../images/vervebotLogo.png';
 import BgImageNew from '../images/BgImageNew.png';
 import { styles } from './AppStyles';
-import Icon from 'react-native-vector-icons/Feather';
+import Feather from 'react-native-vector-icons/Feather';
 import { dbPromise } from '../firebaseConfig'; // Ensure Firebase config is correct
 import { ToggleButton } from 'react-native-paper';
 import OneSignal from 'react-native-onesignal';
@@ -27,12 +27,23 @@ const stylesmanager = StyleSheet.create({
     textAlign: 'center',
     flexDirection: 'row', // Horizontal layout
     alignItems: 'center',
+    position: "relative"
   },
+
   LoginPasswordTxtInput: {
-    flex: 1, // Takes up the remaining space
+     borderWidth: 1,
+  borderColor: '#ccc',
+  borderRadius: 8,
+  paddingVertical: 12,
+  paddingHorizontal: 45,  // extra padding so text doesn’t overlap the icon
+  fontSize: 16,
+  color: '#000',
   },
   iconContainer: {
-    marginLeft: '-5%',
+     position: 'absolute',
+  right: 15,
+  top: '50%',
+  transform: [{ translateY: -12 }],
   },
 });
 const LoginForm = ({ }) => {
@@ -49,6 +60,7 @@ const LoginForm = ({ }) => {
   const navigation = useNavigation();
   const TCUrl = 'https://vervebot.io/privacy-policy/';
   const [showPassword, setShowPassword] = useState(false);
+  const iconName = showPassword ? 'eye' : 'eye-off' || 'eye-off';
    const [budgettype, setBudgetType] = useState('');
     const [toggleChecked, setToggleChecked] = useState('unchecked'); 
   const [userData, setUserData] = useState({
@@ -308,8 +320,6 @@ const LoginForm = ({ }) => {
             setLoading_page(false);
           }
         }
-
-
 
       })
       .catch(error => {
@@ -585,9 +595,9 @@ const LoginForm = ({ }) => {
                     onPress={() => setShowPassword(prev => !prev)}
                     style={stylesmanager.iconContainer}
                   >
-                    <Icon
-                      name={showPassword ? 'eye' : 'eye-off'}
-                      size={24}
+                    <Feather
+                      name={iconName}
+                      size={22}
                       color="#000"
                     />
                   </TouchableOpacity>
@@ -607,7 +617,7 @@ const LoginForm = ({ }) => {
                   </Text>
 
                   <ToggleButton
-                    icon={toggleChecked === 'checked' ? 'check' : ''}
+                    icon={toggleChecked === 'checked' ? 'check' : 'blank'}
                     value="check"
                     color="white"
                     style={[

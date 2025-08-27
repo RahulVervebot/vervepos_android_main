@@ -410,4 +410,39 @@ export const styles = StyleSheet.create({
     marginVertical: '1%',
     width: '85%',
   },
+
+  dropdownBox: {
+    padding: 10,
+    borderColor: 'grey',
+    borderRadius: 8,
+    borderWidth: 0.5,
+    width: '50%',
+    height: 30,
+    marginLeft: 10,
+    marginTop: 10,
+    marginRight: -10,
+    justifyContent: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContainer: {
+    margin: 30,
+    padding: 20,
+    backgroundColor: 'white',
+    borderRadius: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  modalOption: {
+    padding: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#ccc',
+  },
+
 });

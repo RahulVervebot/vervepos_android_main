@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, ScrollView, TextInput, Image, Pressable, Modal, ActivityIndicator, ImageBackground, Button } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity, ScrollView, TextInput, Image, Pressable, Modal, ActivityIndicator, ImageBackground } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import promoGif from '../images/homeBG.webp';
 import VervebotLogo from '../images/vervebotLogo.png'
