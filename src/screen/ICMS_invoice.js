@@ -1,45 +1,94 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, FlatList, TouchableOpacity } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import React, {useState, useEffect} from 'react';
+import {View, Text, TextInput, FlatList, TouchableOpacity} from 'react-native';
+import {useNavigation, useRoute} from '@react-navigation/native';
+import axios from "axios";
+// const baseUrl = 'https://icmsfrontend.vervebot.io'; // production URL
+const baseUrl = 'http://192.168.1.39:3006'; // development URL
+ // Replace with your actual base URL
 
-const dummyInvoices = [
-  { id: 1, invoiceNo: 'INV-1001', invoiceDate: '2025-08-01', InvoiceStatus:"not_seen"},
-  { id: 2, invoiceNo: 'INV-1002', invoiceDate: '2025-08-03',InvoiceStatus:"" },
-  { id: 3, invoiceNo: 'INV-1003', invoiceDate: '2025-08-05', InvoiceStatus:"not_seen"},
-  { id: 4, invoiceNo: 'INV-1004', invoiceDate: '2025-08-06', InvoiceStatus:"not_seen"},
-  { id: 5, invoiceNo: 'INV-1005', invoiceDate: '2025-08-07', InvoiceStatus:""},
-  { id: 6, invoiceNo: 'INV-1006', invoiceDate: '2025-08-08', InvoiceStatus:""},
-  { id: 7, invoiceNo: 'INV-1007', invoiceDate: '2025-08-09', InvoiceStatus:"not_seen"},
-  { id: 8, invoiceNo: 'INV-1008', invoiceDate: '2025-08-10', InvoiceStatus:"not_seen"},
-  { id: 9, invoiceNo: 'INV-1009', invoiceDate: '2025-08-11', InvoiceStatus:""},
-  { id: 10, invoiceNo: 'INV-1010', invoiceDate: '2025-08-12', InvoiceStatus:"" },
-];
+
+const fetchInvoices = async (vendor) => {
+  try {
+    console.log("Fetching invoices for vendor:", vendor);
+    console.log("URL:", `${baseUrl}/api/invoice/getsavedinvoices`);
+
+    const response = await axios.get(`${baseUrl}/api/invoice/getsavedinvoices`, {
+      headers: {
+        "Content-Type": "application/json",
+        store: "deepanshu_test",
+        "mobile-auth": "true",
+      },
+      params: {
+        ...vendor,
+      },
+      timeout: 100000,
+    });
+
+    console.log("Fetched invoices response:", response.data);
+
+    // Ensure we always return an array
+    return response.data || [];
+  } catch (error) {
+    if (error.response) {
+      console.error("Server error:", error.response.status, error.response.data);
+    } else if (error.request) {
+      console.error("No response received:", error);
+    } else {
+      console.error("Error setting up request:", error.message);
+    }
+    return [];
+  }
+};
+
+
 
 export default function InvoiceList() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { vendor } = route.params;
-
+  const {vendor} = route.params;
+  const [invoices, setInvoices] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [invoiceSearch, setInvoiceSearch] = useState('');
   const [invoiceList, setInvoiceList] = useState([]);
 
-  useEffect(() => {
-    // initial sort: new invoices first
-    const sorted = [...dummyInvoices].sort((a, b) => {
-      if (a.number_of_newInvoice < b.number_of_newInvoice) return 1;
-      if (a.number_of_newInvoice > b.number_of_newInvoice) return -1;
-      return 0;
-    });
-    setInvoiceList(sorted);
-  }, []);
+ useEffect(() => {
+  const loadInvoices = async () => {
+    setLoading(true);
+    console.log('Loading invoices for vendor:', vendor);
 
-  const handleInvoiceSearch = (text) => {
+    const fetchedInvoices = await fetchInvoices(vendor);
+
+    console.log('Fetched invoices:', fetchedInvoices);
+
+    const sorted = fetchedInvoices
+      .sort((a, b) => {
+        let dateA = new Date(a.SavedDate);
+        let dateB = new Date(b.SavedDate);
+        if (dateA > dateB) return -1;
+        else if (dateA < dateB) return 1;
+        else return 0;
+      })
+      .sort((x, y) => {
+        if (x.InvoiceStatus < y.InvoiceStatus) return 1;
+        if (x.InvoiceStatus > y.InvoiceStatus) return -1;
+        return 0;
+      });
+
+    setInvoiceList(sorted);
+    setLoading(false);
+  };
+  loadInvoices();
+}, []);
+
+
+  const handleInvoiceSearch = text => {
     setInvoiceSearch(text);
 
-    let results = [...dummyInvoices];
+   let results = [...invoiceList]; // instead of dummyInvoices
+
     if (text.trim() !== '') {
       results = results.filter(inv =>
-        inv.invoiceNo.toLowerCase().includes(text.toLowerCase())
+        inv.invoiceNo.toLowerCase().includes(text.toLowerCase()),
       );
     }
 
@@ -54,8 +103,8 @@ export default function InvoiceList() {
   };
 
   return (
-    <View style={{ flex: 1, padding: 16 }}>
-      <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 10 }}>
+    <View style={{flex: 1, padding: 16}}>
+      <Text style={{fontSize: 18, fontWeight: 'bold', marginBottom: 10}}>
         Invoices for {vendor.value}
       </Text>
 
@@ -64,15 +113,20 @@ export default function InvoiceList() {
         onChangeText={handleInvoiceSearch}
         placeholder="Search Invoice No..."
         style={{
-          borderWidth: 1, borderColor: '#ccc',
-          borderRadius: 8, padding: 10, marginBottom: 10,
+          borderWidth: 1,
+          borderColor: '#ccc',
+          borderRadius: 8,
+          padding: 10,
+          marginBottom: 10,
         }}
       />
-
+      {loading ? (
+        <Text style={{textAlign: 'center', color: '#888'}}>Loading invoices...</Text>
+      ) : (
       <FlatList
         data={invoiceList}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item, index }) => (
+        keyExtractor={item => item.SavedInvoiceNo.toString()}
+        renderItem={({item, index}) => (
           <View
             style={{
               flexDirection: 'row',
@@ -81,43 +135,40 @@ export default function InvoiceList() {
               borderColor: '#ddd',
               backgroundColor: index % 2 === 0 ? '#fafafa' : '#fff',
               alignItems: 'center',
-            }}
-          >
-            <Text style={{ flex: 1 }}>{item.invoiceNo}</Text>
-            <Text style={{ flex: 1 }}>{item.invoiceDate}</Text>
+            }}>
+            <Text style={{flex: 1}}>{item.SavedInvoiceNo}</Text>
+            <Text style={{flex: 1}}>{item.SavedDate}</Text>
 
-            {item.InvoiceStatus ==="not_seen" && (
+            {item.InvoiceStatus === 'not_seen' && (
               <View
                 style={{
                   backgroundColor: 'blue',
                   borderRadius: 12,
                   paddingHorizontal: 6,
                   marginRight: 10,
-                }}
-              >
-                <Text style={{ color: 'white', fontSize: 12 }}>
-                  new
-                </Text>
+                }}>
+                <Text style={{color: 'white', fontSize: 12}}>new</Text>
               </View>
             )}
 
             <TouchableOpacity
-              style={{ flex: 1 }}
+              style={{flex: 1}}
               onPress={() =>
-                navigation.navigate('InvoiceDetails', { id: item.id })
-              }
-            >
-              <Text style={{ color: 'blue' }}>Open</Text>
+                navigation.navigate('InvoiceDetails', {Invoice: item})
+              }>
+              <Text style={{color: 'blue'}}>Open</Text>
             </TouchableOpacity>
-            
           </View>
         )}
         ListEmptyComponent={() => (
-          <Text style={{ textAlign: 'center', color: '#888', marginTop: 20 }}>
+          <Text style={{textAlign: 'center', color: '#888', marginTop: 20}}>
             No invoices found
           </Text>
         )}
-      />
+      
+    
+    
+      />)}
     </View>
   );
 }

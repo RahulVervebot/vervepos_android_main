@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import EditProduct from "../components/EditProduct.js";
 import InvoiceRow from '../components/InvoiceRow.js';
+import {useNavigation, useRoute} from '@react-navigation/native';
 
 
 // Enable Layout Animation for Android
@@ -21,22 +22,27 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 export default function InvoiceDetails() {
-  const itemsRef = useRef(
-    Array.from({ length: 20 }, (_, i) => ({
-      id: i + 1,
-      barcode: String(1000000000 + i),
-      description: `Product ${i + 1} with a long description for testing.`,
-      unitInCase: 24,
-      extendedPrice: 480.0,
-      unitPrice: 20.0,
-    }))
-  );
+  const itemsRef = useRef([])
+    
+
   const [expandedId, setExpandedId] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [isModalVisible, setModalVisible] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [InvoiceDetails, setInvoiceDetails] = useState(null);
+  const navigation = useNavigation();
+  const route = useRoute();
+ const {Invoice} = route.params;
 
-
+  // setInvoiceDetails(Invoice);
+ const day = Invoice?.SavedInvoiceNo
+ const InvNumber = Invoice?.SavedInvoiceNo;
+  const vendorName = Invoice?.InvoiceName;
+  itemsRef.current = Invoice?.InvoiceData
+  const totalExtendedPrice = itemsRef.current.reduce((sum, item) => sum + Number(item.extendedPrice), 0);
+  const totalUnitPrice = itemsRef.current.reduce((sum, item) => sum + Number(item.unitPrice), 0);
+  const totalPieces = itemsRef.current.reduce((sum, item) => sum + Number(item.pieces), 0);
+ console.log('Invoice Details:', Invoice);
   const openModal = useCallback((item) => {
     setSelectedItem(item);
     setModalVisible(true);
@@ -58,6 +64,31 @@ export default function InvoiceDetails() {
     return newSet;
   });
 };
+const handleBulkUpdate = () => {
+  const selectedItems = itemsRef.current.filter(item => selectedIds.has(item.ProductId));
+
+  if (selectedItems.length === 0) {
+    alert("Please select at least one row.");
+    return;
+  }
+
+  // Example: increase cost by 10%
+  const updatedItems = itemsRef.current.map(item => {
+    if (selectedIds.has(item.ProductId)) {
+      return {
+        ...item,
+        unitPrice: (Number(item.unitPrice) * 1.1).toFixed(2), // increase cost
+        extendedPrice: (Number(item.extendedPrice) * 1.1).toFixed(2),
+      };
+    }
+    return item;
+  });
+
+  itemsRef.current = updatedItems;
+  setSelectedIds(new Set()); // clear selection
+  alert(`Updated ${selectedItems.length} items successfully ✅`);
+};
+
   const handleSave = useCallback((updatedItem, commit = true) => {
     if (commit) {
       itemsRef.current = itemsRef.current.map((it) =>
@@ -97,8 +128,8 @@ export default function InvoiceDetails() {
     <InvoiceRow
       item={item}
       index={index}
-      isExpanded={expandedId === item.id}
-      onToggle={() => toggleExpand(item.id)}
+      isExpanded={expandedId === item.ProductId}
+      onToggle={() => toggleExpand(item.ProductId)}
       onLongPress={handleLongPress}      // ✅ pass handler
       selectedIds={selectedIds}    
       onEdit = {openModal}      // ✅ pass state
@@ -118,22 +149,28 @@ export default function InvoiceDetails() {
       {/* Summary Bar */}
       <View style={styles.summaryBar}>
         <View style={{ flexDirection: 'column', gap: 4 }}>
-          <Text style={styles.summaryText}>INV No: <Text style={styles.summaryValue}>INV_125</Text></Text>
-          <Text style={styles.summaryText}>V. Name: <Text style={styles.summaryValue}>Chetak</Text></Text>
-          <Text style={styles.summaryText}>S. Date: <Text style={styles.summaryValue}>{new Date().toLocaleDateString()}</Text></Text>
+          <Text style={styles.summaryText}>INV No: <Text style={styles.summaryValue}>{InvNumber }</Text></Text>
+          <Text style={styles.summaryText}>V. Name: <Text style={styles.summaryValue}>{vendorName}</Text></Text>
+          <Text style={styles.summaryText}>S. Date: <Text style={styles.summaryValue}>{day}</Text></Text>
         </View>
         <View style={{ flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
-          <Text style={styles.summaryText}>No. Units: <Text style={styles.summaryValue}>{itemsRef.current.reduce((sum, i) => sum + i.unitInCase, 0)}</Text></Text>
-          <Text style={styles.summaryText}>E. Price: <Text style={styles.summaryValue}>${itemsRef.current.reduce((sum, i) => sum + i.extendedPrice, 0).toFixed(2)}</Text></Text>
-          <Text style={styles.summaryText}>C. Cost: <Text style={styles.summaryValue}>${itemsRef.current.reduce((sum, i) => sum + i.unitPrice, 0).toFixed(2)}</Text></Text>
+          <Text style={styles.summaryText}>No. Units: <Text style={styles.summaryValue}>{totalPieces}</Text></Text>
+          <Text style={styles.summaryText}>E. Price: <Text style={styles.summaryValue}>${(totalExtendedPrice).toFixed(2)}</Text></Text>
+          <Text style={styles.summaryText}>C. Cost: <Text style={styles.summaryValue}>${(totalUnitPrice).toFixed(2)}</Text></Text>
         </View>
       </View>
 
       {/* List */}
+      {itemsRef.current.length === 0 ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ fontSize: 16, color: '#888' }}>
+            No items found in this invoice.
+          </Text>   
+        </View>):(
       <View style={{ flex: 1, paddingHorizontal: 12, paddingTop: 8 }}>
         <FlatList
           data={itemsRef.current}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={(item) => item.ProductId.toString()}
           ListHeaderComponent={renderHeader}
           stickyHeaderIndices={[0]}
           renderItem={renderItem}
@@ -150,7 +187,7 @@ export default function InvoiceDetails() {
           onSave={handleSave}
         />
         <FloatingButton onPress={() => alert('Floating button pressed!')} title="+" />
-      </View>
+      </View>)}
     </View>
   );
 }
