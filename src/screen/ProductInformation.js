@@ -2066,18 +2066,16 @@ useEffect(() => {
   visible={promoVisible}
   onClose={() => setPromoVisible(false)}
   productId={selectedItem?.items?.[0]?.id}   // pass your product id here
+  productAmount={selectedItem?.promotions[0]?.fix_amount ?? ''}
+  productBuyNo={selectedItem?.promotions[0]?.no_of_products ?? ''}
+  productPromoStartDate={selectedItem?.promotions[0]?.start_date ?? null}
+  productPromoEndDate={selectedItem?.promotions[0]?.end_date ?? null}
   onSaved={() => {
     // refresh UI or setShowButton(true) if you need
     setShowButton(true);
   }}
 />
-                  {/* Check This setShowLabel Shows Error Why Below */}
-                  {/* ACTUAL PROMOTION Model Start*/}
-   
 
-                  {/* Discount modal end*/}
-
-                  {/* OLD VENDOR UPDATE CODING */}
                   <TouchableOpacity
                     onPress={() => {
                       // console.log(vendorCode, 'vendorcode');

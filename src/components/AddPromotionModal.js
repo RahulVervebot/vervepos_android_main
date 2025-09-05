@@ -26,8 +26,10 @@ export default function AddPromotionModal({
   visible,
   onClose,
   productId,
-  defaultStartDate,
-  defaultEndDate,
+  productAmount,
+  productBuyNo,
+  productPromoStartDate,
+  productPromoEndDate,
   onSaved,
 }) {
   const colorScheme = useColorScheme();
@@ -57,13 +59,13 @@ export default function AddPromotionModal({
     d.setHours(23, 59, 59, 0);
     return d;
   }, []);
-
   // ---------- state ----------
-  const [fixedAmount, setFixedAmount] = useState('');
-  const [noOfProducts, setNoOfProducts] = useState('');
-  const [startDate, setStartDate] = useState(defaultStartDate ? new Date(defaultStartDate) : today00);
-  const [endDate, setEndDate] = useState(defaultEndDate ? new Date(defaultEndDate) : plus7_2359);
-
+  const [fixedAmount, setFixedAmount] = useState('0');
+  const [noOfProducts, setNoOfProducts] = useState('0');
+  const [defaultstartDate, setDefaultStartDate] = useState(productPromoStartDate !== null ? productPromoStartDate : null);
+  const [defaultendDate, setDefaultEndDate] = useState(productPromoEndDate !== null ? productPromoEndDate : null);
+  const [startDate, setStartDate] = useState(today00);
+  const [endDate, setEndDate] = useState(plus7_2359);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -81,6 +83,7 @@ export default function AddPromotionModal({
       const d = new Date(date);
       d.setHours(0, 0, 0, 0);
       setStartDate(d);
+      setDefaultStartDate(null);
     }
   };
 
@@ -91,12 +94,13 @@ export default function AddPromotionModal({
       const d = new Date(date);
       d.setHours(23, 59, 59, 0);
       setEndDate(d);
+      setDefaultEndDate(null)
     }
   };
 
   const handleSave = async () => {
-    const amt = parseFloat(fixedAmount);
-    const qty = parseInt(noOfProducts, 10);
+    const amt = parseFloat(fixedAmount !== '0' ? fixedAmount : productAmount);
+    const qty = parseInt(noOfProducts !== '0' ? noOfProducts : productBuyNo , 10);
 
     if (!productId) {
       alert('Missing product id.');
@@ -128,8 +132,8 @@ export default function AddPromotionModal({
       const params = new URLSearchParams({
         fix_amount: String(amt),
         product_id: String(productId),
-        start_date: startDateString, // "yyyy-MM-dd 00:00:00"
-        end_date: endDateString,     // "yyyy-MM-dd 23:59:59"
+        start_date: defaultstartDate !== null? defaultstartDate : startDateString, // "yyyy-MM-dd 00:00:00"
+        end_date: defaultendDate !== null ? defaultendDate : endDateString,     // "yyyy-MM-dd 23:59:59"
         no_of_products: String(qty),
       });
 
@@ -183,9 +187,9 @@ export default function AddPromotionModal({
         <Text style={[{ fontSize: 16, marginTop: 18 }, headerTextColor]}>Fixed Amount</Text>
         <TextInput
           keyboardType="numeric"
-          placeholder="e.g. 5.00"
+          placeholder={String(productAmount)}
           placeholderTextColor="grey"
-          value={fixedAmount}
+          value={fixedAmount !== '0' ? fixedAmount : String(productAmount)}
           onChangeText={setFixedAmount}
           style={{
             height: 44,
@@ -202,9 +206,9 @@ export default function AddPromotionModal({
         <Text style={[{ fontSize: 16, marginTop: 18 }, headerTextColor]}>No. of Products to Buy</Text>
         <TextInput
           keyboardType="numeric"
-          placeholder="e.g. 2"
+          placeholder={String(productBuyNo)}
           placeholderTextColor="grey"
-          value={noOfProducts}
+          value={noOfProducts !== '0' ? noOfProducts : String(productBuyNo)}
           onChangeText={setNoOfProducts}
           style={{
             height: 44,
@@ -235,7 +239,7 @@ export default function AddPromotionModal({
               backgroundColor: '#fff',
             }}
           >
-            <Text style={{ color: '#3784fd' }}>{startDateString.split(' ')[0]}</Text>
+            <Text style={{ color: '#3784fd' }}>{defaultstartDate !== null? defaultstartDate?.split(' ')[0] : startDateString.split(' ')[0]}</Text>
           </View>
           <TouchableOpacity
             onPress={() => setShowStartPicker(true)}
@@ -277,7 +281,7 @@ export default function AddPromotionModal({
               backgroundColor: '#fff',
             }}
           >
-            <Text style={{ color: '#3784fd' }}>{endDateString.split(' ')[0]}</Text>
+            <Text style={{ color: '#3784fd' }}>{defaultendDate !== null ? defaultendDate?.split(' ')[0] : endDateString.split(' ')[0]}</Text>
           </View>
           <TouchableOpacity
             onPress={() => setShowEndPicker(true)}
