@@ -1,23 +1,22 @@
 import React, {memo} from 'react';
 import {View, Text, TouchableOpacity, Button, StyleSheet} from 'react-native';
+import LinkProductModal from './LinkProduct';
 const InvoiceRow = memo(
-  ({item, index, isExpanded, onToggle, onLongPress, selectedIds, onEdit}) => {
+({item, index, isExpanded, onToggle, onLongPress, selectedIds, onEdit, onLinkProduct}) => {
+
     if (!item) return null;
-let Invqty ;
+    let Invqty;
     if (item.qty == '0' && item.extendedPrice === '0.00') {
       return null;
     }
-    
+
     if (!item.qty) {
-       Invqty = (
-        Number(item.extendedPrice) / Number(item.unitPrice)
-      ).toFixed(0);
+      Invqty = (Number(item.extendedPrice) / Number(item.unitPrice)).toFixed(0);
     }
-    return (
+        return (
       <TouchableOpacity
         onPress={onToggle}
         onLongPress={() => onLongPress(item.ProductId)}
-
         style={[
           styles.card,
           selectedIds.has(item.ProductId) && styles.selectedRow,
@@ -28,12 +27,13 @@ let Invqty ;
           style={[
             styles.row,
             {
-              backgroundColor:selectedIds.has(item.ProductId) ? '#d1f7d6' : !item.barcode
+              backgroundColor: selectedIds.has(item.ProductId)
+                ? '#d1f7d6'
+                : !item.barcode
                 ? '#ffe5e5' // light red if no barcode
                 : index % 2 === 0
                 ? '#fafafa'
                 : '#fff',
-                 
             },
           ]}>
           <Text style={[styles.cell, {flex: 2}]}>{item.barcode}</Text>
@@ -88,7 +88,11 @@ let Invqty ;
                 color="#007BFF"
               />
 
-              <Button title="Link Product" onPress={() => {}} color="#28A745" />
+              <Button
+                title="Link Product"
+                onPress={() => onLinkProduct(item)}
+                color="#28A745"
+              />
             </View>
           </View>
         )}

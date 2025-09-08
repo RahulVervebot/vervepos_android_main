@@ -1,9 +1,10 @@
 import React, {useState, useEffect} from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {View, Text, TextInput, FlatList, TouchableOpacity} from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import axios from "axios";
 // const baseUrl = 'https://icmsfrontend.vervebot.io'; // production URL
-const baseUrl = 'http://192.168.1.39:3006'; // development URL
+const baseUrl = 'http://192.168.1.52:3006'; // development URL
  // Replace with your actual base URL
 
 
@@ -50,7 +51,14 @@ export default function InvoiceList() {
   const [loading, setLoading] = useState(true);
   const [invoiceSearch, setInvoiceSearch] = useState('');
   const [invoiceList, setInvoiceList] = useState([]);
-
+   useEffect(() => {
+  if (vendor) {
+    AsyncStorage.setItem('vendor', JSON.stringify(vendor))
+      .then(() => console.log('Vendor saved to AsyncStorage'))
+      .catch(err => console.error('Error saving vendor:', err));
+  }
+}, [vendor]);
+  
  useEffect(() => {
   const loadInvoices = async () => {
     setLoading(true);

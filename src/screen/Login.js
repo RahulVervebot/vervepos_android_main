@@ -606,23 +606,22 @@ const LoginForm = ({ }) => {
                     Tap to Access Manager Dashboard
                   </Text>
 
-                  <ToggleButton
-                    icon={toggleChecked === 'checked' ? 'check' : ''}
-                    value="check"
-                    color="white"
-                    style={[
-                      stylesmanager.toggleButton,
-                      toggleChecked === 'checked'
-                        ? stylesmanager.checked
-                        : stylesmanager.unchecked,
-                    ]}
-                    status={toggleChecked === 'checked' ? 'checked' : 'unchecked'}
-                    onPress={() => {
-                      setToggleChecked(
-                        toggleChecked === 'checked' ? 'unchecked' : 'checked'
-                      );
-                    }}
-                  />
+                 <ToggleButton
+  icon={toggleChecked === 'checked' ? 'check' : 'close'}
+  value="check"
+  color="white"
+  style={[
+    stylesmanager.toggleButton,
+    toggleChecked === 'checked'
+      ? stylesmanager.checked
+      : stylesmanager.unchecked,
+  ]}
+  status={toggleChecked}
+  onPress={() => {
+    setToggleChecked(toggleChecked === 'checked' ? 'unchecked' : 'checked');
+  }}
+/>
+
                 </View>
 
                 <View style={styles.CheckBoxView}>

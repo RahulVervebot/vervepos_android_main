@@ -284,11 +284,42 @@ function Root() {
             />
 
             {appType === 'warehouse' ? (
+              <>
+            
               <Drawer.Screen
                 name="InvoiceScannerWarehouse"
                 component={InvoiceScannerWarehouse}
                 options={{title: 'Scan Invoice'}}
               />
+               <Drawer.Screen
+              options={{
+                title: 'ICMS Invoice',
+                style: {borderTopColor: '#CCC', borderTopWidth: 1},
+                headerStyle: {
+                  backgroundColor: '#3478F5',
+                },
+                headerTintColor: '#fff',
+                headerTitleStyle: {
+                  fontWeight: 'bold',
+                },
+                // drawerIcon: () => (
+                //   <View>
+                //     <Image
+                //       style={{
+                //         height: 30,
+                //         width: 30,
+                //         marginRight: -20,
+                //         marginLeft: -5,
+                //       }}
+                //       source={require('../src/images/product.png')}
+                //     />
+                //   </View>
+                // ),
+              }}
+              name="ICMS Invoice"
+              component={ICMS_VendorList}
+            />
+              </>
             ) : null}
           </>
         ) : userRole === 'account_manager' ? (

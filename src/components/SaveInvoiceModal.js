@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const SaveInvoiceModal = ({ isVisible, onClose, vendorName, tableData,cleardata }) => {
   const [savedInvoiceNo, setSavedInvoiceNo] = useState('');
    const baseurl = "https://icmsfrontend.vervebot.io";
+   const dev_URL = "http://10.151.46.48:3006"
      const [ocrurl, setOcrUrl] = useState(null);
      const [ocrsavestore, setOcrSaveStore] = useState(null);
    useFocusEffect(
@@ -28,7 +29,10 @@ const SaveInvoiceModal = ({ isVisible, onClose, vendorName, tableData,cleardata 
       Alert.alert('Missing Invoice Number', 'Please enter a valid invoice number.');
       return;
     }
-    
+    console.log("URL",`${dev_URL}/api/invoice/create_data`)
+    console.log("vendorName",vendorName);
+    console.log("savedInvoiceNo",savedInvoiceNo);
+    console.log("tableData",tableData)
 
     const bodyPayload = {
       InvoiceName: vendorName,
@@ -54,7 +58,7 @@ const SaveInvoiceModal = ({ isVisible, onClose, vendorName, tableData,cleardata 
     };
 
     try {
-      const response = await fetch(`${ocrurl}/api/invoice/scaninvoicedata`, {
+      const response = await fetch(`${dev_URL}/api/invoice/scaninvoicedata`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -67,6 +71,7 @@ const SaveInvoiceModal = ({ isVisible, onClose, vendorName, tableData,cleardata 
       await handleCreateInvoice();
       onClose();
     } catch (error) {
+      console.log("reeeor",error)
       Alert.alert('Error', 'Failed to save invoice.');
     }
   };
@@ -97,7 +102,7 @@ const SaveInvoiceModal = ({ isVisible, onClose, vendorName, tableData,cleardata 
     };
 
     try {
-      const response = await fetch(`${ocrurl}/api/invoice/create_data`, {
+      const response = await fetch(`${dev_URL}/api/invoice/create_data`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
