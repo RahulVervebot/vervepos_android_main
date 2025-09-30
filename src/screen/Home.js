@@ -432,13 +432,14 @@ const Home = () => {
                       alignItems: 'center',
                       padding: '2%',
                       borderRadius: 10,
-                      backgroundColor: 'rgba(126, 129, 255, 0.5)',
+                      backgroundColor: '#3784fd',
                     }}>
                     <Text
                       style={{
                         textAlign: 'center',
                         fontSize: 16,
-                        color: '#fff', padding: 5
+                        color: '#fff', padding: 5,
+                        
                       }}>
                       CHANGE LOCATION
                     </Text>
@@ -514,21 +515,7 @@ const Home = () => {
                     </View>
                   )}
                 </View>
-                  {/* <View style={styles.menuRow}>
-                  <View style={styles.menuItem}>
-                         <TouchableOpacity
-                        style={styles.menuButton}
-                        activeOpacity={0.7}
-                       onPress={() => setModalVisibleRegistration(true)}>
-                        <Image
-                          style={styles.menuIcon}
-                          source={require('../.././src/images/user-139.png')}
-                        />
-                        <Text style={styles.menuText}>REGISTER NEW USER</Text>
-                      </TouchableOpacity>
-                   <UserRegistrationModal visible={modalVisibleRegistration} onClose={() => setModalVisibleRegistration(false)} />
-                    </View>
-                  </View> */}
+              
               </View>
             </View>
           </View>
@@ -567,6 +554,7 @@ const styles = StyleSheet.create({
       width: 0,
       height: 3,
     },
+     margin: 5,
     shadowOpacity: 0.27,
     shadowRadius: 4.65,
     elevation: 6,

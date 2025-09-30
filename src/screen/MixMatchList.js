@@ -151,10 +151,12 @@ const MixMatchList = ({ route, navigation }) => {
                     setData(prevData => [...prevData, newGroup]);
                     setDialogVisible(false);
                     setGroupLoading(false);
+                    setNewGroupName('')
                 } else {
                     console.log('Failed to create new group:', result.result);
-                    alert('Failed to create new group. Please try again.');
+                    alert(result.result.message);
                     setGroupLoading(false);
+                 setNewGroupName('')
                 }
             } else {
                 setGroupLoading(false)
@@ -259,7 +261,7 @@ const MixMatchList = ({ route, navigation }) => {
                     >
                         <Dialog.Title>Confirm Delete</Dialog.Title>
                         <Dialog.Content>
-                            <Text style={{color:"#fff"}}>Are you sure you want to delete {selectedGroupNameToDelete}?</Text>
+                            <Text>Are you sure you want to delete {selectedGroupNameToDelete}?</Text>
                         </Dialog.Content>
                         <Dialog.Actions>
                             <Button onPress={() => setDeleteDialogVisible(false)}>Cancel</Button>

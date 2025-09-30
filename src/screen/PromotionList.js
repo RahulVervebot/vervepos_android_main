@@ -33,7 +33,7 @@ const PromotionList = ({ navigation }) => {
                 const result = await response.json();
                 console.log('accessToken:',accessToken);
                 console.log("storeUrl:",storeUrl);
-                console.log('promotion_list response:',response);
+                console.log('promotion_list response:',result);
                 if (result.length < 1) {
                     alert('No Promotions Found');
                 } else {

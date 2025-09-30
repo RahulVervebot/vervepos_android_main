@@ -1230,7 +1230,7 @@ useEffect(() => {
                       if (showButton) {
                         Alert.alert(
                           'PRODUCT DETAILS',
-                          'PLEASE SAVE YOYR PRODUCT DETAILS FIRST!',
+                          'PLEASE SAVE PRODUCT DETAILS FIRST!',
                           [
                             {
                               text: 'CANCEL',

@@ -40,6 +40,7 @@ import {
       //   'Cookie',
       //   'session_id=0ceac6a14cc05178c2a851427b88ce1a9deab1cb',
       // );
+      console.log("current_access_token",current_access_token);
       myHeaders.append(
         'access_token',
         current_access_token,
@@ -273,18 +274,21 @@ import {
       borderRadius: 20,
       backgroundColor: '#fff',
     },
-    searchPromotionTextInput: {
-      borderColor: '#3399ff',
-      borderWidth: 1,
-      padding: '3%',
-      marginBottom: '1%',
-      borderRadius: 10,
-      width: '90%',
-      height: '7%',
-      marginTop: '2%',
-      fontSize: 16,
-      alignSelf:'center'
-    },
+ searchPromotionTextInput: {
+  borderColor: '#3399ff',
+  borderWidth: 1,
+  paddingHorizontal: 12, // numeric padding
+  paddingVertical: 10,    // numeric padding
+  borderRadius: 10,
+  width: '90%',
+  height: 48,             // fixed height prevents shrinking
+  fontSize: 16,
+  alignSelf: 'center',
+  marginTop: 8,
+  marginBottom: 8,
+  backgroundColor: '#fff',
+},
+
     totalPromotionsView: {
       backgroundColor: '#fff',
       shadowOffset: {width: 1, height: 3},

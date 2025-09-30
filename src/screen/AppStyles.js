@@ -273,7 +273,8 @@ export const styles = StyleSheet.create({
   closeButton: {
     color: 'red',
     fontSize: 30,
-    margin: 15,
+    marginHorizontal: 15,
+    marginVertical: 50,
     textAlign: 'right',
   },
 
@@ -444,5 +445,6 @@ export const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: '#ccc',
   },
+
 
 });

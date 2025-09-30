@@ -106,6 +106,40 @@ import {
     const [isDiscovering, setIsDiscovering] = useState(false);
     const [buttonTitle, setButtonTitle] = useState('Click to Discover Bluetooth Printers');
     const [discoveredPrintersList, setDiscoveredPrintersList] = useState([]);
+      const [access_Token, setAccessToken] = useState('');
+
+        const getAccessToken = async () => {
+    // Prefer state; fallback to AsyncStorage; keep state in sync
+    if (access_Token) return access_Token;
+    const token = await AsyncStorage.getItem('access_token');
+    if (token && token !== access_Token) setAccessToken(token);
+    return token || '';
+  };
+    useEffect(() => {
+    const FirstRun = async () => {
+      try {
+        const token = await AsyncStorage.getItem('access_token');
+        if (token) setAccessToken(token);
+      } catch (error) {
+        alert('some error');
+      }
+    }
+    FirstRun();
+  }, []);
+
+    const buildRequestOptions = async () => {
+    const token = await getAccessToken();
+    const headers = new Headers();
+    if (token) headers.append('access_token', token);
+    // Keep Cookie header if your backend expects it
+    headers.append('Cookie', 'session_id');
+    return {
+      method: 'GET',
+      headers,
+      redirect: 'follow',
+      credentials: 'omit', // Ensures cookies are not sent
+    };
+  };
     const showStartDatePicker = () => {
       setStartDatePickerVisibility(true);
     };
@@ -169,19 +203,8 @@ import {
         // Prepare headers for the API request
         const myHeaders = new Headers();
         myHeaders.append("access_token", accessToken);
-        // myHeaders.append('Cookie', 'session_id');
 
-        const requestOptions = {
-          method: 'GET',
-          headers: myHeaders,
-          redirect: 'follow',
-          credentials: 'omit', // Ensures cookies are not sent
-        };
-  
-        // console.log("storeUrl", storeUrl);
-        // console.log("passStartDate", passStartDate);
-        // console.log("passEndDate", passEndDate);
-        // Make the API request
+      const requestOptions = await buildRequestOptions();
 
         const response = await fetch(
           `${storeUrl}/api/track_products?start_date=${passStartDate}&end_date=${passEndDate}`,
@@ -264,32 +287,18 @@ import {
     });
   
     let current_url;
-    let current_access_token;
-    // console.log(route.params, 'route.params');
-  
-    AsyncStorage.getItem('access_token')
-      .then(access_token => {
-        // console.log('access_token : ', access_token);
-        current_access_token = access_token;
-      })
-      .catch(error => {
-        alert('some error');
-      });
+
   
     var myHeaders = new Headers();
-    myHeaders.append('access_token', current_access_token);
-    // myHeaders.append(
-    //   'Cookie',
-    //   'session_id',
-    // );
+    myHeaders.append('access_token', access_Token);
+
   
-    var requestOptions = {
-      method: 'GET',
-      headers: myHeaders,
-      redirect: 'follow',
-      credentials: 'omit', // Ensures cookies are not sent
-    };
-  
+    // var requestOptions = {
+    //   method: 'GET',
+    //   headers: myHeaders,
+    //   redirect: 'follow',
+    //   credentials: 'omit', // Ensures cookies are not sent
+    // };
   
     useEffect(() => {
       discoverPrinters();
@@ -372,7 +381,7 @@ import {
           }
         }
       }
-  
+
       // After the loop, if there's an unfinished line and we still have space for it, push it
       if (currentLine && lines.length < maxLines) {
         lines.push(currentLine);
@@ -563,7 +572,7 @@ if (!ok) {
       });
       // console.log(ManualWord, 'ManualWord');
       setLoading_page(true);
-  
+        const requestOptions = await buildRequestOptions();
       fetch(
         `${current_url}/api/search/products?keyword=${ManualWord}&pagesize=${pageSize}&page_no=${searchOffset}${categ_id_for_url}`,
         requestOptions,
@@ -593,7 +602,7 @@ if (!ok) {
           alert('some error');
         });
       setLoading_page(true);
-  
+        const requestOptions = await buildRequestOptions();
   
       fetch(
         `${current_url}/api/search/products?pagesize=${pageSize}&page_no=${offset}${categ_id_for_url}`,
@@ -800,7 +809,7 @@ if (!ok) {
         });
       setLoading_page(true);
   
-  
+        const requestOptions = await buildRequestOptions();
       fetch(
         `${current_url}/api/search/products?pagesize=${pageSize}&page_no=${offset}${selectedId}`,
         requestOptions,
@@ -821,6 +830,7 @@ if (!ok) {
           setIsLoading(false);
           setLoading_page(false);
         });
+        
       fetch(`${current_url}/api/categories`, requestOptions)
         .then(response => response.json())
         .then(result => {
