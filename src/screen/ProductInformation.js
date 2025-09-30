@@ -439,11 +439,13 @@ const handleEndDateConfirm = (_event, selectedDate) => {
           setProductExpireModelUpdate(false);
           setShowButton(true)
           setLoading(false);
+          setUpdateExpiryVisible(false);
         })
         .catch(err => {
           console.error('Expiry add error →', err);
           setProductExpireModelUpdate(false);
           setLoading(false);
+         setUpdateExpiryVisible(false);
         });
     }
 
