@@ -92,25 +92,33 @@ const PaymentReport = () => {
     'Europe/London': 1,
     'UTC': 0
   };
-  const [startDateValue, setStartDateValue] = useState(new Date());
-  const [endDateValue, setEndDateValue] = useState(new Date());
+  // const [startDateValue, setStartDateValue] = useState(new Date());
+  // const [endDateValue, setEndDateValue] = useState(new Date());
 
-  const convertTimestampToZoneForStartDate = (ms) => {
-    const offset = ZONE_OFFSETS[timezone] ?? 0;
-    const formatted = DateTime.fromMillis(ms).plus({ hours: offset }).toFormat('yyyy-MM-dd HH:mm:ss');
-    console.log("formatted start:", formatted);
-    setStartDate(formatted);
-    return formatted;
-  };
+    const [startDateValue, setStartDateValue] = useState(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return now;
+  });
+  
+  // Set default endDateValue to 23:59:59 today
+  const [endDateValue, setEndDateValue] = useState(() => {
+    const now = new Date();
+    now.setHours(23, 59, 59, 999);
+    return now;
+  });
+const convertTimestampToZoneForStartDate = (ms) => {
+ const formatted = DateTime.fromMillis(ms).toFormat('yyyy-MM-dd HH:mm:ss');
+  setStartDate(formatted);
+  return formatted;
+};
 
-  const convertTimestampToZoneForEndDate = (ms) => {
-    const offset = ZONE_OFFSETS[timezone] ?? 0;
-    const formatted = DateTime.fromMillis(ms).plus({ hours: offset }).toFormat('yyyy-MM-dd HH:mm:ss');
-    console.log("formatted end:", formatted);
-    // const myEndDateTime = DateTime.fromMillis(ms, { zone: timezone }).endOf('day').toFormat('yyyy-MM-dd HH:mm:ss');
-    setEndDate(formatted);
-    return formatted;
-  };
+ const convertTimestampToZoneForEndDate = (ms) => {
+   const offset = ZONE_OFFSETS[timezone] ?? 0;
+   const formatted = DateTime.fromMillis(ms).toFormat('yyyy-MM-dd HH:mm:ss');
+   setEndDate(formatted);
+   return formatted;
+ };
 
   // Start & End Date Picker States Ends
 
@@ -338,8 +346,8 @@ const PaymentReport = () => {
               <>
                 <View style={{ alignItems: 'center' }}>
                   <Text style={[{ fontSize: 16, marginBottom: 5 }, colorScheme === 'dark' && { color: 'white' }]}>
-                    From:{startDate}
-                  </Text>
+                    From:{DateTime.fromJSDate(startDateValue).toFormat('yyyy-MM-dd HH:mm:ss')}
+                  </Text> 
                   <Button onPress={() => setShowStartDatePicker(true)} mode="outlined" style={{ marginRight: "2%" }}>
                     Select Start Date
                   </Button>
@@ -365,7 +373,7 @@ const PaymentReport = () => {
 
                 <View style={{ alignItems: 'center' }}>
                   <Text style={[{ fontSize: 16, marginBottom: 5 }, colorScheme === 'dark' && { color: 'white' }]}>
-                    To:{endDate}
+                    To:{DateTime.fromJSDate(endDateValue).toFormat('yyyy-MM-dd HH:mm:ss')}
                   </Text>
                   <Button onPress={() => setShowEndDatePicker(true)} mode="outlined" style={{ marginRight: "2%" }}>
                     Select End Date

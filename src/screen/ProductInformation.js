@@ -720,10 +720,6 @@ useEffect(() => {
       credentials: 'omit', // Ensures cookies are not sent
     };
 
-    // console.log('Barcode:', newBarcode);
-    // console.log(current_access_token, myHeaders, 'current_access_token');
-
-
     let product_details = '';
 
     fetch(`${current_url}/api/vendorlist`, requestOptions)
@@ -1012,21 +1008,47 @@ useEffect(() => {
     }
   }, [selectedItem]);
 
-  const onTaxSelect = useCallback((item, index) => {
-    let updatedTaxData = taxData
-    updatedTaxData[index].checked = !updatedTaxData[index].checked
-    setTaxData(updatedTaxData)
-    setTexItem(taxData[index]);
-    const updateTaxIds = updatedTaxData.filter((item) => {
-      return item.checked
-    }).map((selectedTax) => selectedTax.id)
-    setTaxId(updateTaxIds);
-    if (item.id != selectedItem.items[0].taxes_id[0]) {
-      setShowButton(true);
-    } else {
-      setShowButton(false);
-    }
-  }, [taxId, taxData, taxItem, showButton]);
+  // const onTaxSelect = useCallback((item, index) => {
+  //   let updatedTaxData = taxData
+  //   updatedTaxData[index].checked = !updatedTaxData[index].checked
+  //   setTaxData(updatedTaxData)
+  //   setTexItem(taxData[index]);
+  //   const updateTaxIds = updatedTaxData.filter((item) => {
+  //     return item.checked
+  //   }).map((selectedTax) => selectedTax.id)
+  //   setTaxId(updateTaxIds);
+  //   if (item.id != selectedItem.items[0].taxes_id[0]) {
+  //     setShowButton(true);
+  //   } else {
+  //     setShowButton(false);
+  //   }
+  // }, [taxId, taxData, taxItem, showButton]);
+
+const onTaxSelect = useCallback((item /* , _index, _data */) => {
+  // Update by id, immutably
+  setTaxData(prev => {
+    const next = prev.map(row =>
+      row.id === item.id ? { ...row, checked: !row.checked } : row
+    );
+
+    // collect selected ids
+    const selectedIds = next.filter(t => t.checked).map(t => t.id);
+    setTaxId(selectedIds);
+    setTexItem(item);
+
+    // compare with existing taxes on the product
+    const existingIds = (selectedItem?.items?.[0]?.taxes_id ?? []).map(t =>
+      typeof t === 'object' ? t.id : t
+    );
+
+    const changed =
+      [...selectedIds].sort().join(',') !== [...existingIds].sort().join(',');
+
+    setShowButton(changed);
+    return next;
+  });
+}, [selectedItem]);
+
 
   const handleCaseCostChange = (event, newPrice) => {
     setCaseCost(newPrice);
@@ -1726,6 +1748,7 @@ useEffect(() => {
         justifyContent: 'space-between',
         alignItems: 'center',
         width: 130,
+        marginTop: 10
       }}>
       {/* Display current selection */}
       {/* Trigger Modal */}
@@ -2185,12 +2208,14 @@ useEffect(() => {
                     }}>
                     {!selectedItem?.items[0]?.taxes_id.length ? (
                       <Dropdown
-                        data={taxData}
-                        onSelect={onTaxSelect}
-                        Lable={LableTax}
-                        value={taxItem}
-                        isToggle={true}
-                      />
+  data={taxData}
+  onSelect={onTaxSelect}
+  Lable={LableTax}
+  value={taxItem}
+  isToggle={true}
+  taxes_id={selectedItem?.items[0]?.taxes_id}
+  selectedItem={selectedItem}
+/>
                     ) : (
                       <View>
                         {!taxToggle ? (
@@ -2239,14 +2264,15 @@ useEffect(() => {
                             </Text>
                           </View>
                         ) : (
-                          <Dropdown
-                            data={taxData}
-                            onSelect={onTaxSelect}
-                            Lable={LableTax}
-                            value={taxItem}
-                            isToggle={true}
-                            taxes_id={selectedItem?.items[0]?.taxes_id}
-                          />
+                         <Dropdown
+  data={taxData}
+  onSelect={onTaxSelect}
+  Lable={LableTax}
+  value={taxItem}
+  isToggle={true}
+  taxes_id={selectedItem?.items[0]?.taxes_id}
+  selectedItem={selectedItem}
+/>
                         )}
                       </View>
                     )}
@@ -2750,7 +2776,8 @@ useEffect(() => {
                           borderColor: '#6366F1',
                           borderRadius: 12,
                           padding: 5,
-                          margin: 25,
+                          marginHorizontal: 25,
+                          marginVertical: 5
                         }}>
                         <Text
                           style={{

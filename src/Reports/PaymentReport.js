@@ -27,7 +27,6 @@ const PaymentReport = () => {
   const LIST_HEIGHT = height * 0.65;
   const colorScheme = useColorScheme();
   const [selectedItem, setSelectedItem] = useState(null);
-  const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [isCustom, setIsCustom] = useState(false);
   const [dialogVisible, setDialogVisible] = useState(false);
@@ -53,7 +52,7 @@ const PaymentReport = () => {
   'Pacific/Honolulu','Pacific/Pago_Pago','America/Indiana/Indianapolis'
 ];
 const ZONE_OFFSETS = {
-  'America/New_York': -4,
+  'America/New_York': 4,
   'America/Chicago': -5,
   'America/Denver': -6,
   'America/Phoenix': -7,
@@ -68,6 +67,7 @@ const ZONE_OFFSETS = {
   'UTC': 0
 };
 
+   const [startDate, setStartDate] = useState(null);
 
   const [startDateValue, setStartDateValue] = useState(() => {
   const now = new Date();
@@ -125,30 +125,23 @@ useEffect(() => {
 }, []);
 
 
-  const handleNewStartDateConfirm = (event, selectedDate) => {
-    const timestamp = event.nativeEvent.timestamp;
-    const final = convertTimestampToZoneForStartDate(timestamp);
-    setStartDateValue(new Date(timestamp));
-  };
 
-  const handleNewEndDateConfirm = (event, selectedDate) => {
-    const timestamp = event.nativeEvent.timestamp;
-    const final = convertTimestampToZoneForEndDate(timestamp);
-    setEndDateValue(new Date(timestamp));
-  };
 
 
   // for android
-  const convertTimestampToZoneForStartDate = (ms) => {
-  const offset = ZONE_OFFSETS[timezone] ?? 0;
-  const formatted = DateTime.fromMillis(ms).plus({ hours: offset }).toFormat('yyyy-MM-dd HH:mm:ss');
+const convertTimestampToZoneForStartDate = (ms) => {
+ const offset = ZONE_OFFSETS[timezone] ?? 0;
+ const startformate =  DateTime.fromJSDate(ms).toFormat('yyyy-MM-dd HH:mm:ss')
+ console.log("ms time start",startformate);
+ const formatted = DateTime.fromMillis(ms).toFormat('yyyy-MM-dd HH:mm:ss');
   setStartDate(formatted);
   return formatted;
 };
 
 const convertTimestampToZoneForEndDate = (ms) => {
+  console.log("ms time end",ms);
   const offset = ZONE_OFFSETS[timezone] ?? 0;
-  const formatted = DateTime.fromMillis(ms).plus({ hours: offset }).toFormat('yyyy-MM-dd HH:mm:ss');
+  const formatted = DateTime.fromMillis(ms).toFormat('yyyy-MM-dd HH:mm:ss');
   setEndDate(formatted);
   return formatted;
 };
@@ -173,17 +166,11 @@ const convertTimestampToZoneForEndDate = (ms) => {
     setSelectedItem(item);
     setSelectedPeriodName(item.name);
     setDialogVisible(false);
-
     const timePeriod = item.name;
-// for ios
-    // const now = DateTime.fromMillis(Date.now(), { zone: timezone });
-    // const yesterday = now.minus({ days: 1 });
-
-// for android
-      const offset = ZONE_OFFSETS[timezone] ?? 0;
+   // for android
+  const offset = ZONE_OFFSETS[timezone] ?? 0;
   const now = DateTime.utc().plus({ hours: offset });
   const yesterday = now.minus({ days: 1 });
-
 
     if (timePeriod !== 'Custom') {
       setIsCustom(false);
@@ -248,6 +235,7 @@ const convertTimestampToZoneForEndDate = (ms) => {
         setIsCustom(true);
         break;
     }
+
   };
 
   return (
@@ -326,7 +314,8 @@ const convertTimestampToZoneForEndDate = (ms) => {
           newDate.setMonth(selectedDate.getMonth());
           newDate.setDate(selectedDate.getDate());
           setStartDateValue(newDate);
-          convertTimestampToZoneForStartDate(newDate.getTime());
+       
+         convertTimestampToZoneForStartDate(newDate);
         }
       }}
     />
@@ -337,7 +326,7 @@ const convertTimestampToZoneForEndDate = (ms) => {
       mode="time"
       display="default"
       onChange={(event, selectedTime) => {
-              setShowStartTimePicker(false);
+       setShowStartTimePicker(false);
         if (event.type === 'set' && selectedTime) {
           const newTime = new Date(startDateValue);
           newTime.setHours(selectedTime.getHours());
@@ -409,6 +398,7 @@ const convertTimestampToZoneForEndDate = (ms) => {
       </View>
     </Provider>
   );
+
 };
 
 export default PaymentReport;
