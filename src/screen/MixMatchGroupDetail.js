@@ -1311,10 +1311,9 @@ useEffect(() => {
                             </View>
                         </View>
                         <Button mode="contained" onPress={handleUpdateStatus}>Update</Button>
-
                         <View style={styles.datePickerContainer}>
                             <View style={styles.dateInput}>
-                               <Text style={{ color: colorScheme === 'dark' ? '#fff' : '#000', fontSize: 16 , marginTop: 20,marginBottom:20 }}>
+                               <Text style={{ color:'#000', fontSize: 16 , marginTop: 20,marginBottom:20 }}>
                                  Start Date: {displayedStartDate || 'N/A'}
                                   </Text>
                              <View style={{flexDirection:"row"}}>
@@ -1323,7 +1322,7 @@ useEffect(() => {
                               </Button>
                              </View>
                                   {/* End Date */}
-                                  <Text style={{ color: colorScheme === 'dark' ? '#fff' : '#000', fontSize: 16, marginTop: 20,marginBottom:20 }}>
+                                  <Text style={{ color: '#000', fontSize: 16, marginTop: 20,marginBottom:20 }}>
                                     End Date: {displayedEndDate || 'N/A'}
                                   </Text>
                                  <View style={{flexDirection:"row"}}>

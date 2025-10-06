@@ -1,11 +1,27 @@
-import React, { useEffect, useState } from 'react';
-import { View, ScrollView, Linking, Text,PermissionsAndroid,Alert, Image, Dimensions, StyleSheet } from 'react-native'; // Import Text from react-native
-import { Button, Card, Subheading, IconButton,TextInput } from 'react-native-paper';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  View,
+  ScrollView,
+  Linking,
+  Text,
+  PermissionsAndroid,
+  Alert,
+  Image,
+  Dimensions,
+  StyleSheet,
+  Platform,
+} from 'react-native';
+import {
+  Button,
+  Card,
+  IconButton,
+  TextInput,
+} from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LoadingModal from '../components/LoadingModal';
 import nodata from '../images/nodata.jpg';
-import RNFS from 'react-native-fs'; // File System
-import Share from 'react-native-share'; // For Sharing
+import RNFS from 'react-native-fs';
+import Share from 'react-native-share';
 import FileViewer from 'react-native-file-viewer';
 
 const IcmsInvenotryReport = ({ navigation }) => {
@@ -27,107 +43,137 @@ const IcmsInvenotryReport = ({ navigation }) => {
   const [isRequestInProgress, setIsRequestInProgress] = useState(false);
   const [scannedBarcode, setScannedBarcode] = useState(null);
   const [productDetails, setProductDetails] = useState(null);
-  const [downloadDoc,setDownloadDoc] = useState([]);
+  const [downloadDoc, setDownloadDoc] = useState([]);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [downloadItem,setDownloadItem] = useState(null);
+  const [downloadItem, setDownloadItem] = useState(null);
   const [searchValue, setSearchValue] = useState('');
+
+  // ---- leak guards ----
+  const abortControllersRef = useRef(new Set());
+  const isMountedRef = useRef(true);
+  const currentDownloadJobIdRef = useRef(null);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+
+      // abort all in-flight fetches
+      abortControllersRef.current.forEach((ctrl) => {
+        try { ctrl.abort(); } catch {}
+      });
+      abortControllersRef.current.clear();
+
+      // stop any in-progress RNFS download
+      if (currentDownloadJobIdRef.current != null) {
+        try { RNFS.stopDownload(currentDownloadJobIdRef.current); } catch {}
+        currentDownloadJobIdRef.current = null;
+      }
+    };
+  }, []);
+
+  const safeSetState = (setter) => {
+    if (isMountedRef.current) setter();
+  };
+
+  const safeFetch = async (url, options = {}) => {
+    const controller = new AbortController();
+    abortControllersRef.current.add(controller);
+    try {
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      return res;
+    } finally {
+      abortControllersRef.current.delete(controller);
+    }
+  };
 
   useEffect(() => {
     const readFiles = async () => {
       try {
-       // Change to the desired directory
         const path =
           Platform.OS === 'android'
             ? `${RNFS.DownloadDirectoryPath}`
             : `${RNFS.DocumentDirectoryPath}`;
-        const result = await RNFS.readDir(path); // Get file list
-        setDownloadDoc(result.map(file => file.name)); // Extract file names
+        const result = await RNFS.readDir(path);
+        safeSetState(() => setDownloadDoc(result.map((file) => file.name)));
       } catch (error) {
         console.error('Error reading files:', error);
       }
     };
 
     readFiles();
+    // re-check after a download completes/changes
   }, [isDownloading]);
 
-
   const checkPermission = async () => {
-     if (Platform.OS === 'android') {
-       try {
-         const granted = await PermissionsAndroid.request(
-           PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-         );
-         return granted === PermissionsAndroid.RESULTS.GRANTED;
-       } catch (err) {
-         console.warn(err);
-         return false;
-       }
-     }
-     return true;
+    if (Platform.OS === 'android') {
+      try {
+        // WRITE permission is still required for <= Android 12; on 13+ WRITE is ignored but harmless
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED || Platform.Version >= 33; // allow 13+
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true;
   };
 
-  const downloadPDF = async (pdfUrl,invoiceNo) => {
-    setDownloadItem(invoiceNo);
-    // console.log('Downloading PDF:', pdfUrl);
+  const downloadPDF = async (pdfUrl, invoiceNo) => {
+    safeSetState(() => setDownloadItem(invoiceNo));
     const hasPermission = await checkPermission();
     if (!hasPermission) {
-      Alert.alert(
-        'Permission Denied',
-        'Storage permission is required to download PDFs.',
-      );
+      Alert.alert('Permission Denied', 'Storage permission is required to download PDFs.');
       return;
     }
 
-    setIsDownloading(true);
+    safeSetState(() => setIsDownloading(true));
     const fileName = `invoice_${invoiceNo}.pdf`;
-    // Set download path (Android: Downloads folder, iOS: Document Directory)
     const path =
       Platform.OS === 'android'
         ? `${RNFS.DownloadDirectoryPath}/${fileName}`
         : `${RNFS.DocumentDirectoryPath}/${fileName}`;
 
-    RNFS.downloadFile({
-      fromUrl: pdfUrl,
-      toFile: path,
-    })
-      .promise.then(() => {
+    const { jobId, promise } = RNFS.downloadFile({ fromUrl: pdfUrl, toFile: path });
+    currentDownloadJobIdRef.current = jobId;
+
+    promise
+      .then(() => {
+        if (!isMountedRef.current) return;
         Alert.alert('Download Complete', `File saved to ${path}`);
-        // console.log('Download Complete:', path);
         setIsDownloading(false);
-        // if(path){sharePDF(path)}
-        // openPDF(path); // Open after downloading
+        currentDownloadJobIdRef.current = null;
       })
-      .catch(error => {
+      .catch((error) => {
+        if (error && error.description === 'cancelled') return;
         console.error(error);
-        Alert.alert('Download Failed', 'An error occurred while downloading.');
-        setIsDownloading(false);
+        if (isMountedRef.current) {
+          Alert.alert('Download Failed', 'An error occurred while downloading.');
+          setIsDownloading(false);
+          currentDownloadJobIdRef.current = null;
+        }
       });
   };
 
-  // Function to Open PDF
   const openPDF = async (filePath) => {
-    // console.log('Opening PDF:', filePath);
     try {
-      await FileViewer.open(filePath, {
-        displayName: 'Invoice',
-        showOpenWithDialog: true,
-      });
+      await FileViewer.open(filePath, { displayName: 'Invoice', showOpenWithDialog: true });
     } catch (error) {
       console.error('Error opening PDF:', error);
       Alert.alert('Error', 'Failed to open PDF. No supported app found.');
-      // sharePDF()
     }
   };
 
-  // Function to Share PDF
   const sharePDF = async (path) => {
-    const fileName = path;
     const filePath =
       Platform.OS === 'android'
-        ? `${RNFS.DownloadDirectoryPath}/${fileName}`
-        : `${RNFS.DocumentDirectoryPath}/${fileName}`;
+        ? `${RNFS.DownloadDirectoryPath}/${path}`
+        : `${RNFS.DocumentDirectoryPath}/${path}`;
 
-    if (!(await RNFS.exists(path))) {
+    const exists = await RNFS.exists(filePath);
+    if (!exists) {
       Alert.alert('Error', 'PDF not found. Please download it first.');
       return;
     }
@@ -146,8 +192,29 @@ const IcmsInvenotryReport = ({ navigation }) => {
     }
   };
 
+  const onSearchPress = () => {
+    const value = (searchValue || '').trim();
+    if (!value) {
+      Alert.alert('Enter a barcode', 'Search field cannot be empty.');
+      return;
+    }
+    handleScanProduct(value);
+  };
+const normalizeBarcode = (s) =>
+  String(s ?? '')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')   // zero-width
+    .replace(/[\r\n\t]/g, '')                // control whitespace
+    .trim();
 
-  const fetchProductData = (barcode) => {
+// For matching server keys like "541\n" to "541"
+const normalizeKey = (s) =>
+  String(s ?? '')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/\s+/g, '')                     // remove all whitespace inside
+    .trim();
+
+  const fetchProductData = (rawBarcode) => {
+      const barcode = normalizeBarcode(rawBarcode);
     return new Promise(async (resolve, reject) => {
       if (isRequestInProgress) {
         alert('A request is already in progress. Please wait.');
@@ -155,8 +222,10 @@ const IcmsInvenotryReport = ({ navigation }) => {
         return;
       }
 
-      setLoading(true);
-      setIsRequestInProgress(true);
+      safeSetState(() => {
+        setLoading(true);
+        setIsRequestInProgress(true);
+      });
 
       try {
         const accessToken = await AsyncStorage.getItem('access_token');
@@ -165,20 +234,25 @@ const IcmsInvenotryReport = ({ navigation }) => {
         const myHeaders = new Headers();
         myHeaders.append('access_token', accessToken);
         myHeaders.append('Content-Type', 'application/json');
-        // myHeaders.append('Cookie', 'session_id');
 
         const requestOptions = {
           method: 'POST',
           headers: myHeaders,
           redirect: 'follow',
           credentials: 'omit',
-          body: JSON.stringify({ barcode: barcode }),
+          body: JSON.stringify({ barcode }),
         };
-
-        const response = await fetch(`${storeUrl}/product/barcode/search`, requestOptions);
+console.log("requestOptions: ",requestOptions);
+        const response = await safeFetch(`${storeUrl}/product/barcode/search`, requestOptions);
         const result = await response.json();
+        console.log('result:', result);
 
-        if (result && result.result && result.result[barcode] && result.result[barcode].VendorByBarcode) {
+        if (
+          result &&
+          result.result &&
+          result.result[barcode] &&
+          result.result[barcode].VendorByBarcode
+        ) {
           resolve(result.result[barcode].VendorByBarcode);
         } else {
           reject(new Error('No vendor data found'));
@@ -188,8 +262,10 @@ const IcmsInvenotryReport = ({ navigation }) => {
         alert('Failed to fetch data. Please try again later.');
         reject(error);
       } finally {
-        setLoading(false);
-        setIsRequestInProgress(false);
+        safeSetState(() => {
+          setLoading(false);
+          setIsRequestInProgress(false);
+        });
       }
     });
   };
@@ -199,22 +275,21 @@ const IcmsInvenotryReport = ({ navigation }) => {
     const storeUrl = await AsyncStorage.getItem('storeUrl');
 
     try {
-
-      var myHeaders = new Headers();
-
+      const myHeaders = new Headers();
       myHeaders.append('access_token', accessToken);
-      myHeaders.append(
-        'Cookie',
-        'session_id',
-      );
-      var requestOptions = {
+      myHeaders.append('Cookie', 'session_id');
+
+      const requestOptions = {
         method: 'GET',
         headers: myHeaders,
         redirect: 'follow',
-        credentials: 'omit', // Ensures cookies are not sent
+        credentials: 'omit',
       };
 
-      const response = await fetch(`${storeUrl}/api/searchbybarcode/products?barcode=${barcode}`, requestOptions);
+      const response = await safeFetch(
+        `${storeUrl}/api/searchbybarcode/products?barcode=${barcode}`,
+        requestOptions
+      );
       const result = await response.json();
 
       if (result && result.items && result.items.length > 0) {
@@ -228,137 +303,179 @@ const IcmsInvenotryReport = ({ navigation }) => {
     }
   };
 
+
   const handleScanProduct = async (barcode) => {
-    // console.log("Scanned barcode:", barcode);
-    setScannedBarcode(barcode);
-
+    safeSetState(() => setScannedBarcode(barcode));
+    console.log("scaned barcode: ",barcode);
     try {
-      const vendorData = await fetchProductData(barcode);
-      setData(vendorData);
-
+       const vendorData = await fetchProductData(barcode);
       let productDetail = await fetchAdditionalProductDetails(barcode);
       if (!productDetail && barcode.startsWith('0')) {
-        // Remove first digit if it's '0'
         productDetail = await fetchAdditionalProductDetails(barcode.substring(1));
       }
       if (!productDetail && barcode.length > 1) {
-        // Remove last digit
         productDetail = await fetchAdditionalProductDetails(barcode.slice(0, -1));
       }
       if (!productDetail && barcode.startsWith('0') && barcode.length > 1) {
-        // Remove first and last digit
-        productDetail = await fetchAdditionalProductDetails(barcode.substring(1, barcode.length - 1));
+        productDetail = await fetchAdditionalProductDetails(
+          barcode.substring(1, barcode.length - 1)
+        );
       }
-      setSearchValue('');
-      setProductDetails(productDetail);
+       safeSetState(() => setData(vendorData));
+       console.log("vendorData:",vendorData);
+
+      safeSetState(() => {
+        setSearchValue('');
+        setProductDetails(productDetail);
+      });
     } catch (error) {
-      setSearchValue('')
+      safeSetState(() => setSearchValue(''));
       console.error('Error in fetching product data:', error);
     }
   };
 
   const formatValue = (value) => {
-    if (value === null || value === undefined || value === "Infinity" || value === "NaN") {
+    if (value === null || value === undefined || value === 'Infinity' || value === 'NaN') {
       return null;
     }
-    return parseFloat(value).toFixed(2);
+    const num = Number(value);
+    if (Number.isNaN(num)) return null;
+    return num.toFixed(2);
   };
 
   const openLinkInBrowser = (url) => {
-    Linking.openURL(url).catch(err => console.error("Failed to open URL:", err));
+    Linking.openURL(url).catch((err) => console.error('Failed to open URL:', err));
   };
 
+  const renderKV = (label, value) => (
+    <View style={styles.row} key={label}>
+      <Text style={[styles.k]} numberOfLines={2}>{label}</Text>
+      <Text style={[styles.v]} numberOfLines={2}>{value ?? ''}</Text>
+    </View>
+  );
+
   return (
-    <View style={{ flex: 1, padding: 20 }}>
-            {/* Search Barcode Field */}
+    <View style={styles.container}>
+      {/* Search Barcode Field */}
       <TextInput
         label="Search Barcode"
         value={searchValue}
         onChangeText={setSearchValue}
         mode="outlined"
-        style={{ marginBottom: 10 }}
+        style={styles.search}
         keyboardType="numeric"
       />
 
-      {/* Search Button - directly calls handleScanProduct */}
-      <Button
-        mode="contained"
-        onPress={() => handleScanProduct(searchValue)}
-        style={{ marginBottom: 20 }}
-      >
+      {/* Search Button */}
+      <Button mode="contained" onPress={onSearchPress} style={styles.btn}>
         Search
       </Button>
+
       <Button
         mode="contained"
-        onPress={() => navigation.navigate('BarcodeScannerWithProps', { onBarcodeScanned: handleScanProduct })}
-        style={{ marginBottom: 20 }}
+        onPress={() =>
+          navigation.navigate('BarcodeScannerWithProps', {
+            onBarcodeScanned: handleScanProduct,
+          })
+        }
+        style={styles.btn}
       >
         Scan Barcode
       </Button>
+
       <LoadingModal visible={loading} />
 
-      <ScrollView style={{ marginTop: 20 }}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         {scannedBarcode && (
-          <Card style={{ marginBottom: 10 }}>
+          <Card style={styles.card}>
             <Card.Content>
-              <Text style={{ fontWeight: 'bold' }}>Barcode: {scannedBarcode}</Text>
+              <Text style={styles.title}>Barcode</Text>
+              <Text style={styles.value}>{scannedBarcode}</Text>
             </Card.Content>
           </Card>
         )}
 
         {productDetails && (
-          <Card style={{ marginBottom: 10 }}>
+          <Card style={styles.card}>
             <Card.Content>
-              <Subheading>POS Name: {productDetails.name}</Subheading>
-              <Subheading>Selling Price In POS: {formatValue(productDetails.list_price)}</Subheading>
-              <Subheading>Size: {productDetails.size}</Subheading>
-              {productDetails.barcode && <Subheading>Barcode: {productDetails.barcode}</Subheading>}
+              <Text style={styles.title}>Product Details</Text>
+              {renderKV('POS Name', productDetails.name)}
+              {renderKV('Selling Price In POS', formatValue(productDetails.list_price))}
+              {renderKV('Size', productDetails.size)}
+              {productDetails.barcode ? renderKV('Barcode', productDetails.barcode) : null}
             </Card.Content>
           </Card>
         )}
 
-        {data.length > 0 && data.map((item, index) => {
-          const details = item.data;
-          return (
-            <Card key={index} style={{ marginBottom: 10 }}>
-              <Card.Content>
-                <Subheading style={{ fontWeight: 'bold' }}>Vendor Name: {item.vendor}</Subheading>
-                {details.invDescription ? <Subheading>Invoice Description: {details.invDescription}</Subheading> : <Subheading>Invoice Description: </Subheading>}
-                {details.invoiceNo ? <Subheading>Invoice No.: {details.invoiceNo}</Subheading> : <Subheading>Invoice No.: </Subheading>}
-                {details.invoiceName ? <Subheading>Invoice Name: {details.invoiceName}</Subheading> : <Subheading>Invoice Name: </Subheading>}
-                {details.invoiceSavedDate ? <Subheading>Invoice Received Date: {details.invoiceSavedDate}</Subheading> :  <Subheading>Invoice Received Date: </Subheading>}
-                {details.itemNo ?  <Subheading>Item No. In Invoice: {details.itemNo}</Subheading> : <Subheading>Item No. In Invoice: </Subheading>}
-                {formatValue(details.invQty) !== null && <Subheading>Invoice Qty Received: {formatValue(details.invQty)}</Subheading>}
-                {formatValue(details.invUnitCost) !== null && <Subheading>Invoice Unit Cost: {formatValue(details.invUnitCost)}</Subheading>}
-                {formatValue(details.invCaseCost) !== null && <Subheading>Invoice Case Cost: {formatValue(details.invCaseCost)}</Subheading>}
-                {formatValue(details.invExtendedPrice) !== null && <Subheading>Invoice Extended Price: {formatValue(details.invExtendedPrice)}</Subheading>}
-              </Card.Content>
-              <View style={{display:'flex',flexDirection:'row-reverse',justifyContent:'space-between'}}>
-              {details.DownloadLink && (
-                <Card.Actions>
-                  <Button onPress={() => downloadPDF(details.DownloadLink,details.invoiceNo)}>
-                     {((downloadItem==details.invoiceNo) && isDownloading ) ? "Downloading ...." :"Download PDF"}
-                  </Button>
-                </Card.Actions>
-              )}
-             
-              {(downloadDoc?.filter(val=>((val).toString()).includes((details.invoiceNo).toString())).length>0) && (
-                <Card.Actions>
-                  <Button onPress={() => navigation.navigate('PDFViewer',{invoiceNo:details.invoiceNo})}>
-                     View PDF
-                  </Button>
-                </Card.Actions>
-              )}
-              </View>
-              
-            </Card>
-          );
-        })}
+        {data.length > 0 &&
+          data.map((item, index) => {
+            const details = item.data || {};
+            return (
+              <Card key={`${item.vendor}-${index}`} style={styles.card}>
+                <Card.Content>
+                  <Text style={[styles.title, styles.bold]}>
+                    Vendor: <Text style={styles.value}>{item.vendor}</Text>
+                  </Text>
 
-        {(!loading && data.length === 0 && scannedBarcode) && (
-          <View>
-              <Image source={nodata} style={styles.image}/>
-           </View>
+                  {renderKV('Invoice Description', details.invDescription || '')}
+                  {renderKV('Invoice No.', details.invoiceNo || '')}
+                  {renderKV('Invoice Name', details.invoiceName || '')}
+                  {renderKV('Invoice Received Date', details.invoiceSavedDate || '')}
+                  {renderKV('Item No. In Invoice', details.itemNo || '')}
+
+                  {formatValue(details.invQty) !== null &&
+                    renderKV('Invoice Qty Received', formatValue(details.invQty))}
+                  {formatValue(details.invUnitCost) !== null &&
+                    renderKV('Invoice Unit Cost', formatValue(details.invUnitCost))}
+                  {formatValue(details.invCaseCost) !== null &&
+                    renderKV('Invoice Case Cost', formatValue(details.invCaseCost))}
+                  {formatValue(details.invExtendedPrice) !== null &&
+                    renderKV('Invoice Extended Price', formatValue(details.invExtendedPrice))}
+                </Card.Content>
+
+                <View style={styles.actionsRow}>
+                  {details.DownloadLink && (
+                    <Card.Actions>
+                      <Button
+                        onPress={() => downloadPDF(details.DownloadLink, details.invoiceNo)}
+                        compact
+                      >
+                        {downloadItem === details.invoiceNo && isDownloading
+                          ? 'Downloading...'
+                          : 'Download PDF'}
+                      </Button>
+                    </Card.Actions>
+                  )}
+
+                  {downloadDoc?.some((val) =>
+                    val.toString().includes((details.invoiceNo || '').toString())
+                  ) && (
+                    <Card.Actions>
+                      <Button
+                        onPress={() =>
+                          navigation.navigate('PDFViewer', {
+                            invoiceNo: details.invoiceNo,
+                          })
+                        }
+                        compact
+                      >
+                        View PDF
+                      </Button>
+                    </Card.Actions>
+                  )}
+                </View>
+              </Card>
+            );
+          })}
+
+        {!loading && data.length === 0 && (
+          <View style={styles.noDataWrap}>
+            <Image source={nodata} style={styles.image} />
+          </View>
         )}
       </ScrollView>
     </View>
@@ -368,205 +485,57 @@ const IcmsInvenotryReport = ({ navigation }) => {
 export default IcmsInvenotryReport;
 
 const styles = StyleSheet.create({
-    image:{
-      width:Dimensions.get('window').width,
-      height:300
-    }
-})
-
-
-// import React, { useState } from 'react';
-// import { View, ScrollView, Linking, Text } from 'react-native'; // Import Text from react-native
-// import { Button, Card, Subheading } from 'react-native-paper';
-// import AsyncStorage from '@react-native-async-storage/async-storage';
-// import LoadingModal from '../components/LoadingModal';
-
-// const IcmsInvenotryReport = ({ navigation }) => {
-//   const [data, setData] = useState([]);
-//   const [loading, setLoading] = useState(false);
-//   const [isRequestInProgress, setIsRequestInProgress] = useState(false);
-//   const [scannedBarcode, setScannedBarcode] = useState(null);
-//   const [productDetails, setProductDetails] = useState(null);
-
-//   const fetchProductData = (barcode) => {
-//     return new Promise(async (resolve, reject) => {
-//       if (isRequestInProgress) {
-//         alert('A request is already in progress. Please wait.');
-//         reject(new Error('Request in progress'));
-//         return;
-//       }
-
-//       setLoading(true);
-//       setIsRequestInProgress(true);
-
-//       try {
-//         const accessToken = await AsyncStorage.getItem('access_token');
-//         const storeUrl = await AsyncStorage.getItem('storeUrl');
-
-//         const myHeaders = new Headers();
-//         myHeaders.append('access_token', accessToken);
-//         myHeaders.append('Content-Type', 'application/json');
-//         myHeaders.append('Cookie', 'session_id');
-
-//         const requestOptions = {
-//           method: 'POST',
-//           headers: myHeaders,
-//           redirect: 'follow',
-//           credentials: 'omit',
-//           body: JSON.stringify({ barcode: barcode }),
-//         };
-
-//         const response = await fetch(`${storeUrl}/product/barcode/search`, requestOptions);
-//         const result = await response.json();
-
-//         if (result && result.result && result.result[barcode] && result.result[barcode].VendorByBarcode) {
-//           resolve(result.result[barcode].VendorByBarcode);
-//         } else {
-//           reject(new Error('No vendor data found'));
-//         }
-//       } catch (error) {
-//         console.error('Error fetching data:', error);
-//         alert('Failed to fetch data. Please try again later.');
-//         reject(error);
-//       } finally {
-//         setLoading(false);
-//         setIsRequestInProgress(false);
-//       }
-//     });
-//   };
-
-//   const fetchAdditionalProductDetails = async (barcode) => {
-//     const accessToken = await AsyncStorage.getItem('access_token');
-//     const storeUrl = await AsyncStorage.getItem('storeUrl');
-
-//     try {
-
-//       var myHeaders = new Headers();
-
-//       myHeaders.append('access_token', accessToken);
-//       myHeaders.append(
-//         'Cookie',
-//         'session_id',
-//       );
-//       var requestOptions = {
-//         method: 'GET',
-//         headers: myHeaders,
-//         redirect: 'follow',
-//         credentials: 'omit', // Ensures cookies are not sent
-//       };
-
-//       const response = await fetch(`${storeUrl}/api/searchbybarcode/products?barcode=${barcode}`, requestOptions);
-//       const result = await response.json();
-
-//       if (result && result.items && result.items.length > 0) {
-//         return result.items[0];
-//       } else {
-//         return null;
-//       }
-//     } catch (error) {
-//       console.error('Error fetching additional product details:', error);
-//       return null;
-//     }
-//   };
-
-//   const handleScanProduct = async (barcode) => {
-//     console.log("Scanned barcode:", barcode);
-//     setScannedBarcode(barcode);
-
-//     try {
-//       const vendorData = await fetchProductData(barcode);
-//       setData(vendorData);
-
-//       let productDetail = await fetchAdditionalProductDetails(barcode);
-//       if (!productDetail && barcode.startsWith('0')) {
-//         // Remove first digit if it's '0'
-//         productDetail = await fetchAdditionalProductDetails(barcode.substring(1));
-//       }
-//       if (!productDetail && barcode.length > 1) {
-//         // Remove last digit
-//         productDetail = await fetchAdditionalProductDetails(barcode.slice(0, -1));
-//       }
-//       if (!productDetail && barcode.startsWith('0') && barcode.length > 1) {
-//         // Remove first and last digit
-//         productDetail = await fetchAdditionalProductDetails(barcode.substring(1, barcode.length - 1));
-//       }
-//       setProductDetails(productDetail);
-//     } catch (error) {
-//       console.error('Error in fetching product data:', error);
-//     }
-//   };
-
-//   const formatValue = (value) => {
-//     if (value === null || value === undefined || value === "Infinity" || value === "NaN") {
-//       return null;
-//     }
-//     return parseFloat(value).toFixed(2);
-//   };
-
-//   const openLinkInBrowser = (url) => {
-//     Linking.openURL(url).catch(err => console.error("Failed to open URL:", err));
-//   };
-
-//   return (
-//     <View style={{ flex: 1, padding: 20 }}>
-//       <Button
-//         mode="contained"
-//         onPress={() => navigation.navigate('BarcodeScannerWithProps', { onBarcodeScanned: handleScanProduct })}
-//         style={{ marginBottom: 20 }}
-//       >
-//         Scan Barcode
-//       </Button>
-//       <LoadingModal visible={loading} />
-
-//       <ScrollView style={{ marginTop: 20 }}>
-//         {scannedBarcode && (
-//           <Card style={{ marginBottom: 10 }}>
-//             <Card.Content>
-//               <Text style={{ fontWeight: 'bold' }}>Barcode: {scannedBarcode}</Text>
-//             </Card.Content>
-//           </Card>
-//         )}
-
-//         {productDetails && (
-//           <Card style={{ marginBottom: 10 }}>
-//             <Card.Content>
-//               <Subheading>POS Name: {productDetails.name}</Subheading>
-//               <Subheading>Selling Price In POS: {formatValue(productDetails.list_price)}</Subheading>
-//               <Subheading>Size: {productDetails.size}</Subheading>
-//               {productDetails.barcode && <Subheading>Barcode: {productDetails.barcode}</Subheading>}
-//             </Card.Content>
-//           </Card>
-//         )}
-
-//         {data.length > 0 && data.map((item, index) => {
-//           const details = item.data;
-//           return (
-//             <Card key={index} style={{ marginBottom: 10 }}>
-//               <Card.Content>
-//                 <Subheading style={{ fontWeight: 'bold' }}>Vendor Name: {item.vendor}</Subheading>
-//                 {details.invDescription && <Subheading>Invoice Description: {details.invDescription}</Subheading>}
-//                 {details.invoiceNo && <Subheading>Invoice No.: {details.invoiceNo}</Subheading>}
-//                 {details.invoiceName && <Subheading>Invoice Name: {details.invoiceName}</Subheading>}
-//                 {details.invoiceSavedDate && <Subheading>Invoice Received Date: {details.invoiceSavedDate}</Subheading>}
-//                 {details.itemNo && <Subheading>Item No. In Invoice: {details.itemNo}</Subheading>}
-//                 {formatValue(details.invQty) !== null && <Subheading>Invoice Qty Received: {formatValue(details.invQty)}</Subheading>}
-//                 {formatValue(details.invUnitCost) !== null && <Subheading>Invoice Unit Cost: {formatValue(details.invUnitCost)}</Subheading>}
-//                 {formatValue(details.invCaseCost) !== null && <Subheading>Invoice Case Cost: {formatValue(details.invCaseCost)}</Subheading>}
-//                 {formatValue(details.invExtendedPrice) !== null && <Subheading>Invoice Extended Price: {formatValue(details.invExtendedPrice)}</Subheading>}
-//               </Card.Content>
-//               {details.DownloadLink && (
-//                 <Card.Actions>
-//                   <Button onPress={() => openLinkInBrowser(details.DownloadLink)}>
-//                     Download PDF
-//                   </Button>
-//                 </Card.Actions>
-//               )}
-//             </Card>
-//           );
-//         })}
-//       </ScrollView>
-//     </View>
-//   );
-// };
-
-// export default IcmsInvenotryReport;
+  container: { flex: 1, padding: 16 },
+  search: { marginBottom: 10 },
+  btn: { marginBottom: 14 },
+  scroll: { marginTop: 8 },
+  scrollContent: { paddingBottom: 32 },
+  card: {
+    marginBottom: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 6,
+    color: '#111',
+  },
+  value: {
+    fontSize: 16,
+    color: '#222',
+  },
+  bold: { fontWeight: '700' },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    gap: 12,
+  },
+  k: {
+    flex: 1,
+    fontSize: 15,
+    color: '#333',
+    fontWeight: '500',
+  },
+  v: {
+    flex: 1,
+    fontSize: 15,
+    color: '#222',
+    textAlign: 'right',
+  },
+  actionsRow: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap', // prevents overflow on small screens
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+  },
+  noDataWrap: { alignItems: 'center', justifyContent: 'center' },
+  image: {
+    width: '100%',
+    height: undefined,
+    aspectRatio: 1.6, // keeps it responsive on mobile/tablet
+    resizeMode: 'contain',
+  },
+});

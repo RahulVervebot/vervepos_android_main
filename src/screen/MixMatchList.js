@@ -257,9 +257,9 @@ const MixMatchList = ({ route, navigation }) => {
                 <Portal>
                     <Dialog
                         visible={deleteDialogVisible}
-                        onDismiss={() => setDeleteDialogVisible(false)}
+                        onDismiss={() => setDeleteDialogVisible(false)} style={{backgroundColor: "#fff"}}
                     >
-                        <Dialog.Title>Confirm Delete</Dialog.Title>
+                        <Text style={styles.dialogTitle}>Confirm Delete</Text>
                         <Dialog.Content>
                             <Text>Are you sure you want to delete {selectedGroupNameToDelete}?</Text>
                         </Dialog.Content>
@@ -308,6 +308,12 @@ const styles = StyleSheet.create({
         color: '#333',
         alignSelf: 'center',
         marginBottom: 20,
+    },
+        dialogTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#333',
+        margin: 20,
     },
     input: {
         backgroundColor: '#fff', // dark background
