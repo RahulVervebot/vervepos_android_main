@@ -101,45 +101,7 @@ const TopSellingCategories = ({route, navigation}) => {
           </Card>
         )}
         
-        {/* <View style={{marginHorizontal: '5%'}}>
-          <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-            <Text style={{fontSize: 20, color: '#000'}}>Name</Text>
-            <Text style={{fontSize: 20, color: '#000'}}>Amount</Text>
-          </View>
-          <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-            <Text style={{fontSize: 20, color: '#000'}}>---------------</Text>
-            <Text style={{fontSize: 20, color: '#000'}}>---------------</Text>
-          </View>
 
-          {data ? (
-            data?.categories?.map((e, i) => (
-              <View
-                key={i}
-                style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                <Text style={{fontSize: 20, color: '#000'}}>{e.name}</Text>
-                <Text style={{fontSize: 20, color: '#000'}}>
-                  $ {Intl.NumberFormat('en-US').format(Math.round(e.amount))}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <View style={{flexDirection: 'row', justifyContent: 'center'}}>
-              <Text
-                style={{fontSize: 20, color: '#000', marginVertical: '35%'}}>
-                Loading...
-              </Text>
-            </View>
-          )}
-
-          <View style={{alignItems: 'center'}}>
-            <Text style={{fontSize: 15, marginBottom: '2%', color: '#000'}}>
-              -----------------------------------------------
-            </Text>
-          </View>
-          <View style={{flexDirection: 'row', justifyContent: 'flex-start'}}>
-            <Text style={{fontSize: 20, color: '#000'}}>End Of Report</Text>
-          </View>
-        </View> */}
 
 
         {data?.categories.length > 0 ? (

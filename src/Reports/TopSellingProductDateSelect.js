@@ -434,7 +434,7 @@ const [endDateValue, setEndDateValue] = useState(() => {
           right={
             <TextInput.Icon
               icon="close"
-              onPress={() => Keyboard.dismiss()}   // hides the keyboard
+              onPress={() => setNumProducts('')}   // hides the keyboard
             />
           }
         />

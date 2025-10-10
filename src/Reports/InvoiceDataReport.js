@@ -1,41 +1,55 @@
-import React, { useState, useEffect } from 'react';
-import { View, ScrollView, Linking, StyleSheet, useColorScheme, TouchableOpacity, Alert, PermissionsAndroid, Platform, Image, Dimensions } from 'react-native';
-import { Button, Card, Text, TextInput, IconButton } from 'react-native-paper';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  useColorScheme,
+  TouchableOpacity,
+  Alert,
+  PermissionsAndroid,
+  Platform,
+  Image,
+  Dimensions,
+  Text,
+  TextInput,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LoadingModal from '../components/LoadingModal';
-// import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { DateTime, IANAZone } from 'luxon';
 import nodata from '../images/nodata.jpg';
-
-import RNFS from 'react-native-fs'; // File System
-import Share from 'react-native-share'; // For Sharing
+import RNFS from 'react-native-fs';
+import Share from 'react-native-share';
 import FileViewer from 'react-native-file-viewer';
+
+// Reusable period selector WITHOUT react-native-paper (with Custom support)
+import SelectPeriodButtonRN from '../components/SelectPeriodButtonRN';
 
 const InvoiceDataReport = ({ navigation }) => {
   React.useLayoutEffect(() => {
     navigation.setOptions({
       headerLeft: () => (
-        <IconButton
-          icon="arrow-left"
-          size={24}
+        <TouchableOpacity
           onPress={() => navigation.goBack()}
-          color="#000"
-        />
+          style={{ paddingHorizontal: 12, paddingVertical: 6 }}
+        >
+          <Text style={{ fontSize: 16 }}>← Back</Text>
+        </TouchableOpacity>
       ),
+      headerTitle: 'Invoice Data Report',
     });
   }, [navigation]);
-  
-  const colorScheme = useColorScheme(); // This will return either 'light' or 'dark'
+
+  const colorScheme = useColorScheme();
   const [data, setData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isRequestInProgress, setIsRequestInProgress] = useState(false);
-  const [startDate, setStartDate] = useState(null);
+
+  const [startDate, setStartDate] = useState(null); // 'yyyy-MM-dd HH:mm:ss'
   const [endDate, setEndDate] = useState(null);
-  const [isStartDatePickerVisible, setStartDatePickerVisibility] = useState(false);
-  const [isEndDatePickerVisible, setEndDatePickerVisibility] = useState(false);
+  const [selectedPeriodName, setSelectedPeriodName] = useState('');
   const [timezone, setTimezone] = useState('America/New_York');
+
   const [accessToken, setAccessToken] = useState('');
   const [storeUrl, setStoreUrl] = useState('');
   const [invoiceNameFilter, setInvoiceNameFilter] = useState('');
@@ -47,107 +61,56 @@ const InvoiceDataReport = ({ navigation }) => {
   const [downloadItem, setDownloadItem] = useState(null);
   const [downloadItemExc, setDownloadItemExc] = useState(null);
 
-  // React Native DateTimePicker New Version States
-  const ZONE_ALIASES = {
-    'US/Eastern': 'America/New_York',
-    'US/Central': 'America/Chicago',
-    'US/Mountain': 'America/Denver',
-    'US/Arizona': 'America/Phoenix',
-    'US/Pacific': 'America/Los_Angeles',
-    'US/Alaska': 'America/Anchorage',
-    'US/Aleutian': 'America/Adak',
-    'US/Hawaii': 'Pacific/Honolulu',
-    'US/Samoa': 'Pacific/Pago_Pago',
-    'US/East-Indiana': 'America/Indiana/Indianapolis'
-  };
-
-  const [startDateValue, setStartDateValue] = useState(new Date());
-  const [endDateValue, setEndDateValue] = useState(new Date());
-  // State for Date Picker For Promotion Ends. 
-
-  // Start & End Date Picker States Starts.
-  const handleNewStartDateConfirm = (event, selectedDate) => {
-    const starttimeStampValueKey = event.nativeEvent.timestamp;
-    const finalstartdate = convertTimestampToZoneForStartDate(starttimeStampValueKey);
-  };
-
-  const convertTimestampToZoneForStartDate = (ms) => {
-    const myStartDateTime = DateTime.fromMillis(ms, { zone: timezone }).startOf('day').toFormat('yyyy-MM-dd HH:mm:ss');
-    console.log(myStartDateTime, 'myStartDateTime');
-    setStartDate(myStartDateTime);
-    return myStartDateTime;
-  };
-
-  const handleNewEndDateConfirm = (event, selectedDate) => {
-    const endtimeStampValueKey = event.nativeEvent.timestamp;
-    const finalenddate = convertTimestampToZoneForEndDate(endtimeStampValueKey);
-  };
-
-  const convertTimestampToZoneForEndDate = (ms) => {
-    const myEndDateTime = DateTime.fromMillis(ms, { zone: timezone }).endOf('day').toFormat('yyyy-MM-dd HH:mm:ss');
-    console.log(myEndDateTime, 'myEndDateTime');
-    setEndDate(myEndDateTime);
-    return myEndDateTime;
-  };
-  // Start & End Date Picker States Ends
-
-   // Fetch the timezone from AsyncStorage and set it to state
-   useEffect(() => {
-
-    const FetchAsyncValueInAwait = async () => {
+  // ==== INIT: set timezone + default today range ====
+  useEffect(() => {
+    const init = async () => {
       try {
+        const [token, url, maybeZone] = await Promise.all([
+          AsyncStorage.getItem('access_token'),
+          AsyncStorage.getItem('storeUrl'),
+          AsyncStorage.getItem('tz'),
+        ]);
+        setAccessToken(token || '');
+        setStoreUrl(url || '');
 
-        // 1️⃣ get the Zone from AsyncStorage (or use a default value)
-        const maybeZone = (await AsyncStorage.getItem('tz')) || 'America/New_York';
-
-        // 2️⃣ translate alias → IANA if needed
-        const zone = ZONE_ALIASES[maybeZone] ?? maybeZone;
-
-        // 3️⃣ guard against truly invalid zones
-        if (!IANAZone.isValidZone(zone)) {
-          console.warn(`"${zone}" is not a valid IANA zone, falling back to UTC.`);
-          zone = 'America/New_York';
-        }
-
+        let zone = maybeZone || 'America/New_York';
+        if (!IANAZone.isValidZone(zone)) zone = 'America/New_York';
         setTimezone(zone);
 
-      } catch (error) {
-        console.log('Error in Getting Cost Price Validation Field', error);
+        const now = DateTime.now().setZone(zone);
+        setStartDate(now.startOf('day').toFormat('yyyy-MM-dd HH:mm:ss'));
+        setEndDate(now.endOf('day').toFormat('yyyy-MM-dd HH:mm:ss'));
+        setSelectedPeriodName('Today');
+      } catch (e) {
+        console.log('Init error:', e);
       }
     };
-
-    FetchAsyncValueInAwait();
-
-    let timestampStart = DateTime.fromMillis(Date.now(), { zone: timezone }).startOf('day').toFormat('yyyy-MM-dd HH:mm:ss');
-    let timestampEnd = DateTime.fromMillis(Date.now(), { zone: timezone }).endOf('day').toFormat('yyyy-MM-dd HH:mm:ss');
-    setStartDate(timestampStart);
-    setEndDate(timestampEnd);
-
+    init();
   }, []);
 
+  // read files (for "View PDF/Excel" conditional buttons)
   useEffect(() => {
     const readFiles = async () => {
       try {
-        // Change to the desired directory
         const path =
           Platform.OS === 'android'
             ? `${RNFS.DownloadDirectoryPath}`
             : `${RNFS.DocumentDirectoryPath}`;
-        const result = await RNFS.readDir(path); // Get file list
-        setDownloadDoc(result.map(file => file.name)); // Extract file names
-      } catch (error) {
-        console.error('Error reading files:', error);
+        const result = await RNFS.readDir(path);
+        setDownloadDoc(result.map((f) => f.name));
+      } catch (e) {
+        console.error('Error reading files:', e);
       }
     };
-
     readFiles();
-  }, [isDownloading,isDownloadingExcel]);
+  }, [isDownloading, isDownloadingExcel]);
 
+  // ====== Permissions + Download helpers ======
   const checkPermission = async () => {
     if (Platform.OS === 'android') {
       try {
         const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE
         );
         return granted === PermissionsAndroid.RESULTS.GRANTED;
       } catch (err) {
@@ -160,182 +123,92 @@ const InvoiceDataReport = ({ navigation }) => {
 
   const downloadPDF = async (pdfUrl, invoiceNo) => {
     setDownloadItem(invoiceNo);
-    // console.log('Downloading PDF:', pdfUrl);
     const hasPermission = await checkPermission();
-    if (!hasPermission) {
-      Alert.alert(
+    if (!hasPermission)
+      return Alert.alert(
         'Permission Denied',
-        'Storage permission is required to download PDFs.',
+        'Storage permission is required to download PDFs.'
       );
-      return;
-    }
 
     setIsDownloading(true);
     const fileName = `invoice_${invoiceNo}.pdf`;
-    // Set download path (Android: Downloads folder, iOS: Document Directory)
     const path =
       Platform.OS === 'android'
         ? `${RNFS.DownloadDirectoryPath}/${fileName}`
         : `${RNFS.DocumentDirectoryPath}/${fileName}`;
 
-    RNFS.downloadFile({
-      fromUrl: pdfUrl,
-      toFile: path,
-    })
-      .promise.then(() => {
+    RNFS.downloadFile({ fromUrl: pdfUrl, toFile: path }).promise
+      .then(() => {
         Alert.alert('Download Complete', `File saved to ${path}`);
-        // console.log('Download Complete:', path);
-        setIsDownloading(false);
-        // if(path){sharePDF(path)}
-        // openPDF(path); // Open after downloading
       })
-      .catch(error => {
-        console.error(error);
-        Alert.alert('Download Failed', 'An error occurred while downloading.');
-        setIsDownloading(false);
-      });
+      .catch(() =>
+        Alert.alert('Download Failed', 'An error occurred while downloading.')
+      )
+      .finally(() => setIsDownloading(false));
   };
 
-
-  const downloadExcel = async (pdfUrl, invoiceNo) => {
-    setIsDownloadingExcel(true)
+  const downloadExcel = async (excelUrl, invoiceNo) => {
+    setIsDownloadingExcel(true);
     setDownloadItemExc(invoiceNo);
-    // console.log('Downloading excel:', pdfUrl);
     const hasPermission = await checkPermission();
-    if (!hasPermission) {
-      Alert.alert(
+    if (!hasPermission)
+      return Alert.alert(
         'Permission Denied',
-        'Storage permission is required to download PDFs.',
+        'Storage permission is required to download files.'
       );
-      return;
-    }
     const fileName = `invoice_${invoiceNo}.xlsx`;
-    // Set download path (Android: Downloads folder, iOS: Document Directory)
     const path =
       Platform.OS === 'android'
         ? `${RNFS.DownloadDirectoryPath}/${fileName}`
         : `${RNFS.DocumentDirectoryPath}/${fileName}`;
 
-    RNFS.downloadFile({
-      fromUrl: pdfUrl,
-      toFile: path,
-    })
-      .promise.then(() => {
-        Alert.alert('Download Complete', `File saved to ${path}`);
-        // console.log('Download Complete:', path);
-        setIsDownloadingExcel(false);
-        // if(path){sharePDF(path)}
-        // openPDF(path); // Open after downloading
-      })
-      .catch(error => {
-        console.error(error);
-        Alert.alert('Download Failed', 'An error occurred while downloading.');
-        setIsDownloadingExcel(false);
-      });
+    RNFS.downloadFile({ fromUrl: excelUrl, toFile: path }).promise
+      .then(() => Alert.alert('Download Complete', `File saved to ${path}`))
+      .catch(() =>
+        Alert.alert('Download Failed', 'An error occurred while downloading.')
+      )
+      .finally(() => setIsDownloadingExcel(false));
   };
 
-  // Function to Open PDF
-  const openPDF = async filePath => {
-    // console.log('Opening PDF:', filePath);
+  const openPDF = async (filePath) => {
     try {
       await FileViewer.open(filePath, {
         displayName: 'Invoice',
         showOpenWithDialog: true,
       });
     } catch (error) {
-      console.error('Error opening PDF:', error);
       Alert.alert('Error', 'Failed to open PDF. No supported app found.');
-      // sharePDF()
     }
   };
 
-  // Function to Share PDF
-  const sharePDF = async path => {
-    const fileName = path;
+  const sharePDF = async (fileName) => {
     const filePath =
       Platform.OS === 'android'
         ? `${RNFS.DownloadDirectoryPath}/${fileName}`
         : `${RNFS.DocumentDirectoryPath}/${fileName}`;
-
-    if (!(await RNFS.exists(path))) {
-      Alert.alert('Error', 'PDF not found. Please download it first.');
-      return;
-    }
-
+    if (!(await RNFS.exists(filePath)))
+      return Alert.alert('Error', 'PDF not found. Please download it first.');
     try {
-      const options = {
+      await Share.open({
         url: `file://${filePath}`,
         type: 'application/pdf',
         title: 'Share Invoice PDF',
         failOnCancel: false,
-      };
-      await Share.open(options);
+      });
     } catch (error) {
-      console.error('Error sharing PDF:', error);
       Alert.alert('Error', 'Failed to share PDF.');
     }
   };
 
-
-  useEffect(() => {
-    const initialize = async () => {
-      try {
-        const [token, url, tz] = await Promise.all([
-          AsyncStorage.getItem('access_token'),
-          AsyncStorage.getItem('storeUrl')
-        ]);
-
-        setAccessToken(token);
-        setStoreUrl(url);
-      } catch (error) {
-        alert('Error fetching initial data');
-      }
-    };
-
-    initialize();
-  }, []);
-
-  const showStartDatePicker = () => setStartDatePickerVisibility(true);
-  const hideStartDatePicker = () => setStartDatePickerVisibility(false);
-  const handleStartDateConfirm = (date) => {
-    const formattedDate = formatDateTime(date, '00:00:00');
-    setStartDate(formattedDate);
-    hideStartDatePicker();
-  };
-
-  const showEndDatePicker = () => setEndDatePickerVisibility(true);
-  const hideEndDatePicker = () => setEndDatePickerVisibility(false);
-  const handleEndDateConfirm = (date) => {
-    const formattedDate = formatDateTime(date, '23:59:59');
-    setEndDate(formattedDate);
-    hideEndDatePicker();
-  };
-
-  const formatDateTime = (date, time) => {
-    const luxonDateTime = DateTime.fromJSDate(new Date(date), { zone: timezone });
-    console.log('luxonDateTime:', luxonDateTime.toISO());
-    return `${luxonDateTime.toISO().split('T')[0]} ${time}`;
-  };
-
-  const openLinkInBrowser = (url) => {
-    // console.log('Opening URL:', url);
-    Linking.openURL(url).catch(err => console.error("Failed to open URL:", err));
-  };
-
+  // ====== API ======
   const fetchProductData = async () => {
-    if (isRequestInProgress) {
-      alert('A request is already in progress. Please wait.');
-      return;
-    }
-
-    if (!startDate || !endDate) {
-      alert('Please select both start and end dates.');
-      return;
-    }
+    if (isRequestInProgress)
+      return alert('A request is already in progress. Please wait.');
+    if (!startDate || !endDate)
+      return alert('Please select both start and end dates.');
 
     setLoading(true);
     setIsRequestInProgress(true);
-
     try {
       const myHeaders = new Headers();
       myHeaders.append('access_token', accessToken);
@@ -347,18 +220,17 @@ const InvoiceDataReport = ({ navigation }) => {
         headers: myHeaders,
         redirect: 'follow',
         credentials: 'omit',
-        body: JSON.stringify({
-          start_date: startDate,
-          end_date: endDate
-        })
+        body: JSON.stringify({ start_date: startDate, end_date: endDate }),
       };
 
-      const response = await fetch(`${storeUrl}/api/invoice_data_report`, requestOptions);
-      const contentType = response.headers.get("content-type");
+      const response = await fetch(
+        `${storeUrl}/api/invoice_data_report`,
+        requestOptions
+      );
+      const contentType = response.headers.get('content-type');
 
-      if (contentType && contentType.includes("application/json")) {
+      if (contentType && contentType.includes('application/json')) {
         const result = await response.json();
-
         if (result && Array.isArray(result.result)) {
           setData(result.result);
           setFilteredData(result.result);
@@ -370,8 +242,8 @@ const InvoiceDataReport = ({ navigation }) => {
         console.error('Response was not JSON:', text);
         alert('Failed to fetch data. Please try again later.');
       }
-    } catch (error) {
-      console.error('Error fetching data:', error);
+    } catch (e) {
+      console.error('Error fetching data:', e);
       alert('Failed to fetch data. Please try again later.');
     } finally {
       setLoading(false);
@@ -379,109 +251,158 @@ const InvoiceDataReport = ({ navigation }) => {
     }
   };
 
+  // filters
   useEffect(() => {
-    filterData();
+    const filtered = data.filter(
+      (item) =>
+        item.InvoiceName.toLowerCase().includes(
+          invoiceNameFilter.toLowerCase()
+        ) &&
+        item.SavedInvoiceNo.toLowerCase().includes(
+          invoiceNumberFilter.toLowerCase()
+        )
+    );
+    setFilteredData(filtered);
   }, [invoiceNameFilter, invoiceNumberFilter, data]);
 
-  const filterData = () => {
-    const filtered = data.filter(item => {
-      return (
-        item.InvoiceName.toLowerCase().includes(invoiceNameFilter.toLowerCase()) &&
-        item.SavedInvoiceNo.toLowerCase().includes(invoiceNumberFilter.toLowerCase())
-      );
-    });
-    setFilteredData(filtered);
-  };
+  const ButtonPrimary = ({ title, onPress, style }) => (
+    <TouchableOpacity onPress={onPress} style={[styles.btn, style]}>
+      <Text style={styles.btnText}>{title}</Text>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={{ flex: 1, padding: 20 }}>
-      <>
-        <View
-          style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',   // push them apart
-            alignItems: 'center',
-            marginTop: 20,
+      {/* ===== Period selector ===== */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginTop: 8,
+        }}
+      >
+        <SelectPeriodButtonRN
+          buttonText="Select Period"
+          onChange={({ label, startDate, endDate, timezone: tz }) => {
+            // startDate & endDate are guaranteed 'yyyy-MM-dd HH:mm:ss'
+            setSelectedPeriodName(label);
+            setTimezone(tz);
+            setStartDate(startDate);
+            setEndDate(endDate);
           }}
-        >
-          {/* start‑date picker */}
-          <DateTimePicker
-            value={startDateValue ? new Date(startDateValue) : new Date()}
-            mode="date"
-            style={{ width: '48%' }}            // each takes ~½ of the row
-            onChange={(event, date) => {
-              if (event.type === 'set') handleNewStartDateConfirm(event, date);
-            }}
+        />
+        {selectedPeriodName ? (
+          <Text style={{ fontSize: 16, fontWeight: '600' }}>
+            {selectedPeriodName}
+          </Text>
+        ) : null}
+      </View>
+
+      <ButtonPrimary
+        title={loading ? 'Fetching Data...' : 'Fetch Latest Data'}
+        onPress={fetchProductData}
+        style={styles.fetchButton}
+      />
+
+      {data.length > 0 && (
+        <>
+          <TextInput
+            placeholder="Filter by Invoice Name"
+            value={invoiceNameFilter}
+            onChangeText={setInvoiceNameFilter}
+            style={styles.filterInput}
           />
-
-          {/* end‑date picker */}
-          <DateTimePicker
-            value={endDateValue ? new Date(endDateValue) : new Date()}
-            mode="date"
-            style={{ width: '48%' }}            // same width as first one
-            onChange={(event, date) => {
-              if (event.type === 'set') handleNewEndDateConfirm(event, date);
-            }}
+          <TextInput
+            placeholder="Filter by Invoice Number"
+            value={invoiceNumberFilter}
+            onChangeText={setInvoiceNumberFilter}
+            style={styles.filterInput}
           />
-        </View>
-
-        <Button mode="contained" onPress={fetchProductData} disabled={loading} style={styles.fetchButton}>
-          {loading ? 'Fetching Data...' : 'Fetch Latest Data'}
-        </Button>
-
-        {data.length > 0 && (
-          <>
-            <TextInput
-              label="Filter by Invoice Name"
-              value={invoiceNameFilter}
-              onChangeText={setInvoiceNameFilter}
-              style={styles.filterInput}
-            />
-            <TextInput
-              label="Filter by Invoice Number"
-              value={invoiceNumberFilter}
-              onChangeText={setInvoiceNumberFilter}
-              style={styles.filterInput}
-            />
-          </>
-        )}
-      </>
+        </>
+      )}
 
       <LoadingModal visible={loading} />
 
       <ScrollView style={{ marginTop: 20 }}>
-        {(filteredData.length>0) ? filteredData.map((item, index) => (
-          <Card key={index} style={{ marginBottom: 10 }}>
-            <Card.Content>
-              <Text style={{ fontWeight: 'bold' }}>Invoice Name: {item.InvoiceName}</Text>
+        {filteredData.length > 0 ? (
+          filteredData.map((item, index) => (
+            <View key={index} style={styles.card}>
+              <Text style={styles.cardTitle}>
+                Invoice Name: {item.InvoiceName}
+              </Text>
               <Text>Invoice Number: {item.SavedInvoiceNo}</Text>
               <Text>Saved Date: {item.SavedDate}</Text>
-            </Card.Content>
-            <Card.Actions>
-              {(downloadDoc?.filter(val=>(((val).toString()).includes((item.SavedInvoiceNo).toString())) && (val.toString().includes(".pdf"))).length>0)  ? 
-              (<Button onPress={() => navigation.navigate('PDFViewer',{invoiceNo:item.SavedInvoiceNo})}>
-                  View PDF File
-                </Button>) :
-              (<Button onPress={() => downloadPDF(item.DownloadLink,item.SavedInvoiceNo)}>
-                {(isDownloading && downloadItem==item.SavedInvoiceNo) ? "Downloading ..." : "Download PDF"}
-              </Button>)}
-              {item.ExcelDownloadLink && (
-                (downloadDoc?.filter(val=>(((val).toString()).includes((item.SavedInvoiceNo).toString())) && (val.toString().includes(".xlsx")) ).length>0)  ? 
-                (<Button onPress={() => navigation.navigate('ExcelView',{invoiceNo:item.SavedInvoiceNo})}>
-                    View Excel File
-                  </Button>) :
-                (<Button onPress={() => downloadExcel(item.ExcelDownloadLink,item.SavedInvoiceNo)}>
-                  {(isDownloadingExcel && downloadItemExc==item.SavedInvoiceNo) ? "Downloading ..." :"Download Excel"}
-                </Button>)
-              )}
-            </Card.Actions>
-          </Card>
-        )):
-        (loading ? <LoadingModal loading={loading}/> : <View>
-         <Image source={nodata} style={styles.image}/>
-        </View>)}
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                {downloadDoc?.filter(
+                  (val) =>
+                    val.toString().includes(item.SavedInvoiceNo.toString()) &&
+                    val.toString().includes('.pdf')
+                ).length > 0 ? (
+                  <ButtonPrimary
+                    title="View PDF File"
+                    onPress={() =>
+                      navigation.navigate('PDFViewer', {
+                        invoiceNo: item.SavedInvoiceNo,
+                      })
+                    }
+                  />
+                ) : (
+                  <ButtonPrimary
+                    title={
+                      isDownloading && downloadItem === item.SavedInvoiceNo
+                        ? 'Downloading ...'
+                        : 'Download PDF'
+                    }
+                    onPress={() =>
+                      downloadPDF(item.DownloadLink, item.SavedInvoiceNo)
+                    }
+                  />
+                )}
+
+                {item.ExcelDownloadLink &&
+                  (downloadDoc?.filter(
+                    (val) =>
+                      val
+                        .toString()
+                        .includes(item.SavedInvoiceNo.toString()) &&
+                      val.toString().includes('.xlsx')
+                  ).length > 0 ? (
+                    <ButtonPrimary
+                      title="View Excel File"
+                      onPress={() =>
+                        navigation.navigate('ExcelView', {
+                          invoiceNo: item.SavedInvoiceNo,
+                        })
+                      }
+                    />
+                  ) : (
+                    <ButtonPrimary
+                      title={
+                        isDownloadingExcel &&
+                          downloadItemExc === item.SavedInvoiceNo
+                          ? 'Downloading ...'
+                          : 'Download Excel'
+                      }
+                      onPress={() =>
+                        downloadExcel(
+                          item.ExcelDownloadLink,
+                          item.SavedInvoiceNo
+                        )
+                      }
+                    />
+                  ))}
+              </View>
+            </View>
+          ))
+        ) : loading ? (
+          <LoadingModal loading={loading} />
+        ) : (
+          <View>
+            <Image source={nodata} style={styles.image} />
+          </View>
+        )}
       </ScrollView>
-      
     </View>
   );
 };
@@ -489,17 +410,36 @@ const InvoiceDataReport = ({ navigation }) => {
 export default InvoiceDataReport;
 
 const styles = StyleSheet.create({
-  dateInput: {
-    marginBottom: 15,
+  btn: {
+    backgroundColor: '#7E81FF',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
   },
-  fetchButton: {
-    marginVertical: 10,
-  },
+  btnText: { color: '#fff', fontWeight: '600' },
+  fetchButton: { marginVertical: 10, alignSelf: "center",backgroundColor:"#563C9E" },
   filterInput: {
     marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  image: {
-      width: Dimensions.get('window').width,
-      height: 400,
-    },
+  image: { width: Dimensions.get('window').width, height: 400 },
+  card: {
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  cardTitle: { fontWeight: 'bold', marginBottom: 4 },
 });

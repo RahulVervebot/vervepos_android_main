@@ -11,8 +11,13 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import React, {useState, useMemo} from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import imagesPath from '../constants/imagesPath';
+
+const normalizeIdsToSet = (list) => {
+  if (!Array.isArray(list)) return new Set();
+  return new Set(list.map(t => (typeof t === 'object' ? t.id : t)).filter(v => v != null));
+};
 
 const Dropdown = ({
   selectedItem = {},
@@ -21,43 +26,36 @@ const Dropdown = ({
   value = {},
   onSelect = () => {},
   isToggle,
-  taxes_id,
+  taxes_id, // can be [id] or [{id}]
   isSelectedCategory,
   isShowCategoriesDropDown,
   handleSelectedCat,
 }) => {
   const [showOption, setShowOption] = useState(false);
   const [search, setSearch] = useState('');
-  const [taxIds, setTaxIds] = useState([]);
 
-  const onSelectedItem = (val, index) => {
-    // ⬇️ keep old behavior exactly
-    onSelect(val, index, data);
-    setTaxIds([...taxIds, val.name]);
-  };
+  // === Local controlled state for toggle mode ===
+  const [checkedIds, setCheckedIds] = useState(() => normalizeIdsToSet(taxes_id));
 
-  // ===== derive checked flags (keep as you had it) =====
+  // Sync down from props when taxes_id changes externally
+  useEffect(() => {
+    setCheckedIds(normalizeIdsToSet(taxes_id));
+  }, [taxes_id]);
+
+  const selectedIdFromSingle =
+    selectedItem?.items?.[0]?.vendor_name?.[0] ?? null;
+
+  // Build view data without mutating source
   const updatedTaxesData = useMemo(() => {
-    if (Object.keys(selectedItem).length) {
-      data.map(e => {
-        if (selectedItem?.items[0]?.vendor_name[0] == e.id) {
-          return {...e, checked: true};
-        } else {
-          return {...e, checked: false};
-        }
-      });
-    }
-    const updateTaxsId = data.map(obj1 => {
-      const isExist = taxes_id?.some(obj2 => obj1.id === obj2.id);
-      if (isExist) {
-        obj1.checked = true;
-      }
-      return obj1;
+    return (data ?? []).map(e => {
+      const isChecked = isToggle
+        ? checkedIds.has(e.id) // multi-select uses local set
+        : selectedIdFromSingle === e.id; // single-select visual
+      return { ...e, checked: !!isChecked };
     });
-    return updateTaxsId;
-  }, [data, taxes_id]);
+  }, [data, isToggle, checkedIds, selectedIdFromSingle]);
 
-  // ===== improved, case-insensitive search (name, display_name, id) =====
+  // Search (case-insensitive)
   const filteredTaxs = useMemo(() => {
     const src = isToggle ? updatedTaxesData : data;
     const q = search.trim().toLowerCase();
@@ -70,19 +68,48 @@ const Dropdown = ({
     });
   }, [updatedTaxesData, data, isToggle, search]);
 
-  const selectedTaxNames = () => {
-    const taxsNames = filteredTaxs
-      .filter(item => item.checked)
-      .map(selectedItem => selectedItem.name)
-      .join(',');
-    if (taxsNames) {
-      return taxsNames;
-    }
-    return 'PLEASE SELECT';
+  const selectedTaxNames = useMemo(() => {
+    const names = (updatedTaxesData ?? [])
+      .filter(i => i.checked)
+      .map(i => i.name)
+      .filter(Boolean);
+    return names.length ? names.join(',') : 'PLEASE SELECT';
+  }, [updatedTaxesData]);
+
+  const selectedItemName = () => value?.name ?? 'PLEASE SELECT';
+
+  // === Toggle handler (local state) ===
+  const toggleCheck = (item, index) => {
+    setCheckedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(item.id)) next.delete(item.id);
+      else next.add(item.id);
+      // still call onSelect to keep backward compatibility
+      // (parent can ignore extra argument; we pass the new list too)
+      const nextList = Array.from(next);
+      try {
+        onSelect({ ...item, checked: next.has(item.id) }, index, data, nextList);
+      } catch (e) {
+        // no-op if parent expects only 3 args
+        onSelect({ ...item, checked: next.has(item.id) }, index, data);
+      }
+      return next;
+    });
   };
 
-  const selectedItemName = () => {
-    return value?.name ?? 'PLEASE SELECT';
+  const handleRowPress = (item, index) => {
+    if (isToggle) {
+      // In toggle mode, do NOT close the modal – just flip the switch
+      toggleCheck(item, index);
+    } else {
+      // Keep old single-select behavior
+      onSelect(item, index, data);
+      setSearch('');
+      if (isShowCategoriesDropDown) {
+        handleSelectedCat && handleSelectedCat();
+      }
+      setShowOption(false);
+    }
   };
 
   return (
@@ -108,38 +135,34 @@ const Dropdown = ({
           </Text>
         </View>
       )}
-      <View style={{width: '50%'}}>
+      <View style={{ width: '50%' }}>
         {!isShowCategoriesDropDown && (
           <TouchableOpacity
             activeOpacity={0.5}
             style={styles.dropDownStyle}
             onPress={() => setShowOption(!showOption)}>
-            <Text style={{fontSize: 16}}>
+            <Text style={{ fontSize: 16 }}>
               {isSelectedCategory
                 ? selectedItemName()
                     .split(',')
-                    .map((word, index) => (
+                    .map((word, index, arr) => (
                       <Text key={index}>
                         {word}
-                        {index !== selectedItemName().split(',').length - 1
-                          ? ',\n'
-                          : ''}
+                        {index !== arr.length - 1 ? ',\n' : ''}
                       </Text>
                     ))
-                : selectedTaxNames()
+                : selectedTaxNames
                     .split(',')
-                    .map((word, index) => (
+                    .map((word, index, arr) => (
                       <Text key={index}>
                         {word}
-                        {index !== selectedTaxNames().split(',').length - 1
-                          ? ',\n'
-                          : ''}
+                        {index !== arr.length - 1 ? ',\n' : ''}
                       </Text>
                     ))}
             </Text>
 
             <Image
-              style={{transform: [{rotate: showOption ? '180deg' : '0deg'}]}}
+              style={{ transform: [{ rotate: showOption ? '180deg' : '0deg' }] }}
               source={imagesPath.DropdownIcon}
             />
           </TouchableOpacity>
@@ -151,10 +174,9 @@ const Dropdown = ({
             transparent={false}
             visible={showOption}
             onRequestClose={() => {
-              setShowOption(!showOption);
+              setShowOption(false);
               setSearch('');
             }}>
-            {/* KeyboardAvoidingView to prevent shrinking */}
             <KeyboardAvoidingView
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
               style={styles.modalWrap}>
@@ -170,38 +192,28 @@ const Dropdown = ({
                 <ScrollView
                   keyboardShouldPersistTaps="handled"
                   contentContainerStyle={styles.listContent}>
-                  {filteredTaxs?.map((item, index) => {
-                    return (
-                      <TouchableOpacity
-                        style={{
-                          ...styles.selectedItemStyle,
-                          backgroundColor:
-                            value?.id == item.id ? 'lightgrey' : 'white',
-                        }}
-                        onPress={() => {
-                          onSelectedItem(item, index); // keep old behavior
-                          setSearch('');
-                          if (isShowCategoriesDropDown) {
-                            handleSelectedCat && handleSelectedCat();
-                          }
-                          setShowOption(!showOption);
-                        }}
-                        key={String(index)}>
-                        <Text style={{fontSize: 21}}>
-                          {item?.name ?? item?.display_name ?? '(no name)'}
-                        </Text>
+                  {filteredTaxs?.map((item, index) => (
+                    <TouchableOpacity
+                      style={{
+                        ...styles.selectedItemStyle,
+                        backgroundColor:
+                          (!isToggle && value?.id == item.id) ? 'lightgrey' : 'white',
+                      }}
+                      onPress={() => handleRowPress(item, index)}
+                      key={String(item.id ?? index)}>
+                      <Text style={{ fontSize: 21 }}>
+                        {item?.name ?? item?.display_name ?? '(no name)'}
+                      </Text>
 
-                        {isToggle && (
-                          <Switch
-                            color="#6495ed"
-                            ios_backgroundColor="#3e3e3e"
-                            value={!!item.checked}
-                            onValueChange={() => onSelectedItem(item, index)} // keep old behavior
-                          />
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
+                      {isToggle && (
+                        <Switch
+                          ios_backgroundColor="#3e3e3e"
+                          value={!!item.checked}
+                          onValueChange={() => toggleCheck(item, index)}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  ))}
                   {!filteredTaxs?.length && (
                     <Text style={styles.empty}>No matches</Text>
                   )}
@@ -210,7 +222,7 @@ const Dropdown = ({
                 <TouchableOpacity
                   style={styles.closeBtn}
                   onPress={() => {
-                    setShowOption(!showOption);
+                    setShowOption(false);
                     setSearch('');
                   }}>
                   <Text style={styles.closeBtnText}>CLOSE</Text>
@@ -231,7 +243,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderRadius: 8,
-    minHeight: 40, // fixed height prevents shrink
+    minHeight: 40,
     justifyContent: 'space-between',
     flexDirection: 'row',
     alignItems: 'center',
@@ -239,8 +251,6 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     backgroundColor: '#fff',
   },
-
-  // NEW modal/layout styles (no % heights)
   modalWrap: {
     flex: 1,
     alignItems: 'center',
@@ -248,31 +258,27 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingHorizontal: 16,
   },
-
   searchInput: {
     borderColor: '#3399ff',
     borderWidth: 1,
     paddingHorizontal: 12,
-    paddingVertical: 10, // numeric padding to avoid shrinking
+    paddingVertical: 10,
     borderRadius: 10,
     width: '90%',
-    height: 48, // fixed height so it doesn't collapse
+    height: 48,
     fontSize: 16,
     backgroundColor: '#fff',
   },
-
   listWrap: {
-    flex: 1, // take remaining space (instead of maxHeight:'80%')
+    flex: 1,
     width: '100%',
     alignItems: 'center',
     marginTop: 12,
   },
-
   listContent: {
     paddingBottom: 16,
     width: '90%',
   },
-
   selectedItemStyle: {
     paddingVertical: 10,
     paddingHorizontal: 12,
@@ -284,13 +290,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     marginBottom: 8,
   },
-
   empty: {
     textAlign: 'center',
     color: '#6b7280',
     marginTop: 24,
   },
-
   closeBtn: {
     alignItems: 'center',
     marginTop: 8,

@@ -94,7 +94,7 @@ const ProductInformation = ({ item }) => {
   const [showDatePickerFor, setShowDatePickerFor] = useState('')
   const [addExpiryVisible, setAddExpiryVisible] = useState(false);
 const [updateExpiryVisible, setUpdateExpiryVisible] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
+const [modalVisible, setModalVisible] = useState(false);
 
   var selectedCategoriesChange = "";
 
@@ -384,11 +384,11 @@ const handleEndDateConfirm = (_event, selectedDate) => {
           setLoading(false);
         });
     }
+
   const handleExpiryAdded = () => {
   setShowButton(true);      // your existing flag
   // optionally refresh expiry list from server
 };
-
 
     const handleDeleteProductExpire = async (id) => {
       setProductExpireModelUpdate(false);
@@ -757,6 +757,7 @@ useEffect(() => {
           return { ...item, checked: false }
         })
         setTaxData(data);
+        console.log("tax data:",data);
       })
       .catch(error => {
         alert('Some Problem Fetching Taxes');
@@ -781,11 +782,7 @@ useEffect(() => {
           ) {
             setSelectedItem(parsedResult);
             console.log('parsedResult:',parsedResult);
-            // console.log('Promotions[0]?.start_date', parsedResult?.promotions[0]?.start_date ?? null)
-            // console.log('Promotions[0]?.end_date', parsedResult?.promotions[0]?.end_date ?? null)
-
             TempPrice = parsedResult;
-
             if (TempPrice) {
               // console.log(TempPrice, 'TempPrice Product Details');
               // console.log(TempPrice?.items[0]?.otc, 'OTC VALUE Details');
@@ -938,6 +935,7 @@ useEffect(() => {
     }
 
     if (vendorCode != selectedItem.items[0].vendor_name) {
+      console.log("vendor id",vendorCode);
       const vendorIds = vendorCode.map((vendor) => {
         if (isObject(vendor)) {
           return vendor.id;
@@ -948,6 +946,7 @@ useEffect(() => {
     }
 
     if (taxId != selectedItem.items[0].taxes_id[0]) {
+      console.log("taxData test:",taxData);
       const selectedTaxIds = taxData
         .filter(tax => tax.checked)
         .map(tax => tax.id);
@@ -996,6 +995,7 @@ useEffect(() => {
       }
     })
     setVendorData(updateVendorData);
+    console.log("check vendor data",updateVendorData);
     const updateVendorDatas = updateVendorData.filter((item) => {
       return item.checked
     }).map((selectedVendor) => selectedVendor.id)
@@ -1008,46 +1008,62 @@ useEffect(() => {
     }
   }, [selectedItem]);
 
-  // const onTaxSelect = useCallback((item, index) => {
-  //   let updatedTaxData = taxData
-  //   updatedTaxData[index].checked = !updatedTaxData[index].checked
-  //   setTaxData(updatedTaxData)
-  //   setTexItem(taxData[index]);
-  //   const updateTaxIds = updatedTaxData.filter((item) => {
-  //     return item.checked
-  //   }).map((selectedTax) => selectedTax.id)
-  //   setTaxId(updateTaxIds);
-  //   if (item.id != selectedItem.items[0].taxes_id[0]) {
-  //     setShowButton(true);
-  //   } else {
-  //     setShowButton(false);
-  //   }
-  // }, [taxId, taxData, taxItem, showButton]);
+// parent
+const onTaxSelect = useCallback((item, _index, _data, nextListFromChild) => {
+  const toId = (v) => {
+    if (v == null) return null;
+    if (typeof v === 'object') return Number(v.id);
+    return Number(v);
+  };
 
-const onTaxSelect = useCallback((item /* , _index, _data */) => {
-  // Update by id, immutably
   setTaxData(prev => {
+    if (Array.isArray(nextListFromChild)) {
+      // ▶️ TRUST THE CHILD: this is the ground truth of what’s toggled ON
+      const selectedIds = Array.from(new Set(
+        nextListFromChild.map(toId).filter(n => Number.isFinite(n))
+      ));
+
+      const selectedSet = new Set(selectedIds);
+      const next = prev.map(row => ({
+        ...row,
+        checked: selectedSet.has(toId(row.id)),
+      }));
+
+      setTaxId(selectedIds);
+      setTexItem(item);
+
+      // compare with existing (normalize shapes)
+      const existingIds = ((selectedItem?.items?.[0]?.taxes_id) ?? [])
+        .map(toId).filter(Number.isFinite).sort((a,b)=>a-b);
+      const changed = selectedIds.slice().sort((a,b)=>a-b).join(',') !== existingIds.join(',');
+      setShowButton(changed);
+
+      return next;
+    }
+
+    // Fallback (older Dropdowns that don't pass nextList):
     const next = prev.map(row =>
       row.id === item.id ? { ...row, checked: !row.checked } : row
     );
+    const selectedIds = next
+      .filter(t => t.checked)
+      .map(t => toId(t.id))
+      .filter(Number.isFinite);
 
-    // collect selected ids
-    const selectedIds = next.filter(t => t.checked).map(t => t.id);
     setTaxId(selectedIds);
     setTexItem(item);
 
-    // compare with existing taxes on the product
-    const existingIds = (selectedItem?.items?.[0]?.taxes_id ?? []).map(t =>
-      typeof t === 'object' ? t.id : t
-    );
-
-    const changed =
-      [...selectedIds].sort().join(',') !== [...existingIds].sort().join(',');
-
+    const existingIds = ((selectedItem?.items?.[0]?.taxes_id) ?? [])
+      .map(toId).filter(Number.isFinite).sort((a,b)=>a-b);
+    const changed = selectedIds.slice().sort((a,b)=>a-b).join(',') !== existingIds.join(',');
     setShowButton(changed);
+
     return next;
   });
 }, [selectedItem]);
+
+
+
 
 
   const handleCaseCostChange = (event, newPrice) => {
@@ -2207,15 +2223,15 @@ const onTaxSelect = useCallback((item /* , _index, _data */) => {
                       width: '85%',
                     }}>
                     {!selectedItem?.items[0]?.taxes_id.length ? (
-                      <Dropdown
-  data={taxData}
-  onSelect={onTaxSelect}
-  Lable={LableTax}
-  value={taxItem}
-  isToggle={true}
-  taxes_id={selectedItem?.items[0]?.taxes_id}
-  selectedItem={selectedItem}
-/>
+                        <Dropdown
+                          data={taxData}
+                          onSelect={onTaxSelect}
+                          Lable={LableTax}
+                          value={taxItem}
+                          isToggle={true}
+                          taxes_id={selectedItem?.items[0]?.taxes_id}
+                          selectedItem={selectedItem}
+                        />
                     ) : (
                       <View>
                         {!taxToggle ? (
@@ -2519,7 +2535,6 @@ const onTaxSelect = useCallback((item /* , _index, _data */) => {
                               alignSelf: 'center',
                               marginBottom: '10%',
                               color: '#ad7e05',
-                              marginBottom: 0,
                             }}>
                             Update/Delete Expiry
                           </Text>
@@ -2719,6 +2734,7 @@ const onTaxSelect = useCallback((item /* , _index, _data */) => {
                                     borderRadius: 10,
                                     alignSelf: 'center',
                                     alignItems: 'center',
+                                    marginVertical: 5
                                   }}
                                   onPress={() => haldlerProductExprireUpdate(item.expiry_id)}>
                                   <Text
@@ -2776,8 +2792,8 @@ const onTaxSelect = useCallback((item /* , _index, _data */) => {
                           borderColor: '#6366F1',
                           borderRadius: 12,
                           padding: 5,
-                          marginHorizontal: 25,
-                          marginVertical: 5
+                          marginHorizontal: 20,
+                          marginBottom: 10
                         }}>
                         <Text
                           style={{
@@ -2786,6 +2802,7 @@ const onTaxSelect = useCallback((item /* , _index, _data */) => {
                             marginHorizontal: '5%',
                             color: 'blue',
                             textAlign: 'center'
+                            
                           }}>
                           Add Product Expiry
                         </Text>
@@ -2803,11 +2820,12 @@ const onTaxSelect = useCallback((item /* , _index, _data */) => {
                             setUpdateExpiryVisible(true);
                           }}
                           style={{
-                            borderWidth: 1,
-                            borderColor: '#6366F1',
-                            borderRadius: 12,
-                            padding: 5,
-                            margin: 25,
+                              borderWidth: 1,
+                          borderColor: '#6366F1',
+                          borderRadius: 12,
+                          padding: 5,
+                          marginHorizontal: 20,
+                          marginBottom: 10
                           }}>
                           <Text
                             style={{
@@ -2824,18 +2842,21 @@ const onTaxSelect = useCallback((item /* , _index, _data */) => {
                       )}
                     </>}
                   {/* {this for product expiry end code} */}
-
                   {/* SAVE BUTTON */}
                   {showButton && (
                     <TouchableOpacity
                       onPress={priceUpdate}
-                      style={{
-                        ...styles.submitBtm,
-                      }}>
+                       style={{
+                      fontSize: 18,
+                      borderRadius: 10,
+                      padding: 10,
+                      backgroundColor: 'blue',
+                      marginHorizontal: 20,
+                      marginBottom: 10
+                    }}>
                       <Text style={styles.textButton}>SAVE</Text>
                     </TouchableOpacity>
                   )}
-
                   {/* ADD TO PRINT LIST CODE */}
                   <TouchableOpacity
                     onPress={() => {
@@ -2850,7 +2871,7 @@ const onTaxSelect = useCallback((item /* , _index, _data */) => {
                       padding: 10,
                       backgroundColor: '#1fc1fc',
                       marginHorizontal: 20,
-                      marginBottom: '20%',
+                      marginBottom: 10
                     }}>
                     <Text style={styles.textButton}>ADD TO PRINT LIST</Text>
                   </TouchableOpacity>

@@ -447,7 +447,7 @@ const convertTimestampToZoneForStartDate = (ms) => {
           right={
             <TextInput.Icon
               icon="close"
-              onPress={() => Keyboard.dismiss()}   // hides the keyboard
+              onPress={() => setNumCustomers('')}   // hides the keyboard
             />
           }
         />

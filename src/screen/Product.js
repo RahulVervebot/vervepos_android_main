@@ -1449,7 +1449,7 @@ if (!ok) {
               );
             }
           }}>
-          <Text style={styles.printViaBluetoothText}>PRINT VIA BLUETOOT</Text>
+          <Text style={styles.printViaBluetoothText}>PRINT VIA BLUETOOTH</Text>
         </TouchableOpacity>
         <View
           style={{

@@ -302,23 +302,28 @@ const convertTimestampToZoneForEndDate = (ms) => {
 </View>
  <View style={{flexDirection:"row"}}>
 {showStartDatePicker && (
-    <DateTimePicker
-      value={startDateValue}
-      mode="date"
-      display="default"
-      onChange={(event, selectedDate) => {
-              setShowStartDatePicker(false);
-        if (event.type === 'set' && selectedDate) {
-          const newDate = new Date(startDateValue);
-          newDate.setFullYear(selectedDate.getFullYear());
-          newDate.setMonth(selectedDate.getMonth());
-          newDate.setDate(selectedDate.getDate());
-          setStartDateValue(newDate);
-       
-         convertTimestampToZoneForStartDate(newDate);
-        }
-      }}
-    />
+   <DateTimePicker
+    value={new Date(
+      startDateValue.getFullYear(),
+      startDateValue.getMonth(),
+      startDateValue.getDate()
+    )}
+    mode="date"
+    display="default"
+    onChange={(event, selectedDate) => {
+      setShowStartDatePicker(false);
+      if (event.type === 'set' && selectedDate) {
+        // preserve existing time; replace only Y/M/D
+        const newDate = new Date(startDateValue);
+        newDate.setFullYear(selectedDate.getFullYear());
+        newDate.setMonth(selectedDate.getMonth());
+        newDate.setDate(selectedDate.getDate());
+        setStartDateValue(newDate);
+        // 🔧 always pass ms, not a Date object
+        convertTimestampToZoneForStartDate(newDate.getTime());
+      }
+    }}
+  />
    ) }
    {showStartTimePicker && (
     <DateTimePicker
