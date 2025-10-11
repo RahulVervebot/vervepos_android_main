@@ -156,117 +156,97 @@ import {
       }
     };
 
-    const fetchResultsForDateRange = async () => {
-      try {
-        // Retrieve timezone, access token, and store URL from AsyncStorage
-        const [timezone, accessToken, storeUrl] = await Promise.all([
-          AsyncStorage.getItem('tz'),
-          AsyncStorage.getItem('access_token'),
-          AsyncStorage.getItem('storeUrl'),
-        ]);
-  
-        if (!accessToken) {
-          console.log("No access token available.");
-          setNoDataMessage("Access token not available. Please login again.");
-          throw new Error("Access token not available.");
-        }
-  
-        if (!storeUrl) {
-          Alert.alert("Error", "Store URL not found in storage.");
-          throw new Error("Store URL not found.");
-        }
-  
+const fetchResultsForDateRange = async () => {
+  try {
+    // Get storage
+    const [tz, storeUrl] = await Promise.all([
+      AsyncStorage.getItem('tz'),
+      AsyncStorage.getItem('storeUrl'),
+    ]);
+    if (!storeUrl) {
+      Alert.alert('Error', 'Store URL not found in storage.');
+      throw new Error('Store URL not found.');
+    }
 
-        // Normalize the timezone value
-        let normalizedTimezone = timezone === 'US/Eastern' ? 'America/New_York' : timezone;
-  
-        // Convert start and end dates to ISO strings using Luxon and the correct timezone
-        const inputStartDate = new Date(startDate);
-        const luxonStartDateTime = DateTime.fromJSDate(inputStartDate, {
-          zone: normalizedTimezone,
-        });
-        const isoStartString = luxonStartDateTime.toISO();
-        setLuxonStartDate(isoStartString);
-  
-        const inputEndDate = new Date(endDate);
-        const luxonEndDateTime = DateTime.fromJSDate(inputEndDate, {
-          zone: normalizedTimezone,
-        });
-
-        const isoEndString = luxonEndDateTime.toISO();
-        setLuxonEndDate(isoEndString);
-  
-        // Format passStartDate and passEndDate with specific times
-        const passStartDate = isoStartString.split('T')[0] + ' 00:00:00';
-        const passEndDate = isoEndString.split('T')[0] + ' 23:59:59';
-       console.log("passStartDate:",passStartDate);
-        // Prepare headers for the API request
-        const myHeaders = new Headers();
-        myHeaders.append("access_token", accessToken);
-
-      const requestOptions = await buildRequestOptions();
-
-        const response = await fetch(
-          `${storeUrl}/api/track_products?start_date=${passStartDate}&end_date=${passEndDate}`,
-          requestOptions
-        );
-
-        const result = await response.text();
-        // console.log("Result", result);
-  
-        let parsedResult;
-        try {
-          parsedResult = JSON.parse(result);
-        } catch (e) {
-          console.error("Failed to parse result:", e);
-          alert('Unexpected response format. Please try again.');
-          return;
-        }
-  
-        if (Array.isArray(parsedResult)) {
-          // console.log("parsedResult", parsedResult);
-          const mappedData = parsedResult.map(item => ({
-            id: item.product_id,
-            name: item.product_name,
-            list_price: item.new_price,
-            barcode: item.barcode,
-            image_256: false,
-            to_weight: false,
-            pos_categ_id: [null, null],
-            uom_po_id: [null, null],
-            standard_price: item.new_price,
-            size: item.size && item.size !== 'false' && item.size !== 'False' && item.size !== 'N/A' ? item.size : "",
-            case_cost: false,
-            unit_in_case: false,
-            qty_available: 0,
-            vendor_name: false,
-            vendor_ids: [],
-            markup: false,
-            sales_count: 0,
-            taxes_id: [{ id: 1, name: "NO TAX" }],
-            is_ebt_product: false,
-            ewic: false,
-            otc: false,
-          }));
-  
-          setPrintList(prevPrintList => {
-            const newItems = mappedData.filter(
-              newItem => !prevPrintList.some(
-                existingItem => existingItem.id === newItem.id // or use a different unique property like `barcode`
-              )
-            );
-            return [...prevPrintList, ...newItems];
-          });
-  
-        } else {
-          console.error("Unexpected response format: ", result);
-          alert('Unexpected response format. Please try again.');
-        }
-      } catch (error) {
-        console.error("Error fetching data: ", error.message);
-        alert('An error occurred while fetching data. Please try again.');
-      }
+    // ---- Date helpers (no Luxon required) ----
+    // If you MUST honor a remote TZ, consider doing it on the server.
+    // Here we just format the incoming JS Date as YYYY-MM-DD.
+    const fmtYMD = (d) => {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
     };
+
+    const startYMD = fmtYMD(new Date(startDate));
+    const endYMD   = fmtYMD(new Date(endDate));
+    const passStartDate = `${startYMD} 00:00:00`;
+    const passEndDate   = `${endYMD} 23:59:59`;
+console.log("passStartDate:",passStartDate,"passEndDate:",passEndDate);
+    // ---- Build request ----
+    const requestOptions = await buildRequestOptions();
+
+    // Always encode query params (spaces, colons, etc.)
+    const url =
+      `${storeUrl}/api/track_products?` +
+      `start_date=${encodeURIComponent(passStartDate)}` +
+      `&end_date=${encodeURIComponent(passEndDate)}`;
+
+    const response = await fetch(url, requestOptions);
+
+    if (!response.ok) {
+      const txt = await response.text();
+      console.warn('Non-200 response:', response.status, txt);
+      Alert.alert('Error', 'Server returned an error. Please try again.');
+      return;
+    }
+
+    const parsed = await response.json();
+    if (!Array.isArray(parsed)) {
+      console.warn('Unexpected JSON:', parsed);
+      Alert.alert('Unexpected response format. Please try again.');
+      return;
+    }
+
+    const mappedData = parsed.map(item => ({
+      id: item.product_id,
+      name: item.product_name,
+      list_price: item.new_price,
+      barcode: item.barcode,
+      image_256: false,
+      to_weight: false,
+      pos_categ_id: [null, null],
+      uom_po_id: [null, null],
+      standard_price: item.new_price,
+      size:
+        item.size && !['false', 'False', 'N/A'].includes(String(item.size))
+          ? item.size
+          : '',
+      case_cost: false,
+      unit_in_case: false,
+      qty_available: 0,
+      vendor_name: false,
+      vendor_ids: [],
+      markup: false,
+      sales_count: 0,
+      taxes_id: [{ id: 1, name: 'NO TAX' }],
+      is_ebt_product: false,
+      ewic: false,
+      otc: false,
+    }));
+
+    setPrintList(prev => {
+      const newItems = mappedData.filter(
+        ni => !prev.some(pi => pi.id === ni.id)
+      );
+      return [...prev, ...newItems];
+    });
+  } catch (err) {
+    console.error('Error fetching data:', err?.message || err);
+    Alert.alert('Error', 'An error occurred while fetching data. Please try again.');
+  }
+};
+
   
     const handleClearBarCode = () => {
       setTypedBarcode('');
