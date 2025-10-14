@@ -256,8 +256,14 @@ const LoginForm = ({ }) => {
             await AsyncStorage.setItem('lang', responseData.user_context.lang);
             await AsyncStorage.setItem('tz', responseData.user_context.tz);
             await AsyncStorage.setItem('uid', responseData.user_context.uid.toString());
-
-     console.log("responseData home:",responseData);
+           if(responseData.hasOwnProperty('is_location_feature_enabled'))
+           {
+              await AsyncStorage.setItem('is_location_feature_enabled', responseData.is_location_feature_enabled.toString());
+           } else {
+             await AsyncStorage.setItem('is_location_feature_enabled', 'false');
+           }
+           
+          console.log("responseData home:",responseData);
             if (responseData.hasOwnProperty('is_show_cost_price')) {
               await AsyncStorage.setItem('is_show_cost_price', responseData.is_show_cost_price.toString());
             } else {

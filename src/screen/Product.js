@@ -146,17 +146,19 @@ import {
     const showEndDatePicker = () => {
       setEndDatePickerVisibility(true);
     };
-    const onDateChange = (event, selectedDate) => {
-      if (isStartDatePickerVisible) {
+    const onStartDateChange = (event, selectedDate) => {
+              setStartDatePickerVisibility(false);
         setStartDate(selectedDate || startDate);
-        setStartDatePickerVisibility(false);
-      } else if (isEndDatePickerVisible) {
+ 
+    };
+
+      const onEndDateChange = (event, selectedDate) => {
+       setEndDatePickerVisibility(false);
         setEndDate(selectedDate || endDate);
-        setEndDatePickerVisibility(false);
-      }
     };
 
 const fetchResultsForDateRange = async () => {
+    setPrintList([]);
   try {
     // Get storage
     const [tz, storeUrl] = await Promise.all([
@@ -1227,7 +1229,7 @@ if (!ok) {
                   value={startDate || new Date()}
                   mode="date"
                   display="default"
-                  onChange={onDateChange}
+                  onChange={onStartDateChange}
                   style={{ marginLeft: 10 }} // Optional: adjust margin for spacing
                   textColor={colorScheme === 'dark' ? 'white' : 'black'}  // Change text color based on theme
                 />
@@ -1255,7 +1257,7 @@ if (!ok) {
                   value={endDate || new Date()}
                   mode="date"
                   display="default"
-                  onChange={onDateChange}
+                  onChange={onEndDateChange}
                   textColor={colorScheme === 'dark' ? 'white' : 'black'}  // Change text color based on theme
                 />
               )}

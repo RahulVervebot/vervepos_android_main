@@ -450,7 +450,7 @@ console.log("requestOptions: ",requestOptions);
                       </Button>
                     </Card.Actions>
                   )}
-
+{/* 
                   {downloadDoc?.some((val) =>
                     val.toString().includes((details.invoiceNo || '').toString())
                   ) && (
@@ -466,7 +466,7 @@ console.log("requestOptions: ",requestOptions);
                         View PDF
                       </Button>
                     </Card.Actions>
-                  )}
+                  )} */}
                 </View>
               </Card>
             );

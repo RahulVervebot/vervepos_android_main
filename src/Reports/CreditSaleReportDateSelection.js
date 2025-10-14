@@ -160,7 +160,7 @@ useEffect(() => {
 
         <View style={{ marginBottom: spacing * 3 }} />
 
-        <TextInput
+        {/* <TextInput
           label="Number of Products"
           value={numProducts}
           onChangeText={setNumProducts}
@@ -181,7 +181,7 @@ useEffect(() => {
               onPress={() => setNumProducts('')}
             />
           }
-        />
+        /> */}
 
         {endDate && startDate ? (
           <Button

@@ -1,17 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, ScrollView, TextInput, Image, Pressable, Modal, ActivityIndicator, ImageBackground } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, StyleSheet, Text, TouchableOpacity, ScrollView, TextInput, Image, Pressable, Modal, ActivityIndicator, ImageBackground,PermissionsAndroid, Platform } from 'react-native';
 import promoGif from '../images/homeBG.webp';
 import VervebotLogo from '../images/vervebotLogo.png'
-import { err } from 'react-native-svg/lib/typescript/xml';
 import BgImageNew from '../images/BgImageNew.png';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import UserRegistrationModal from '../components/UserRegistrationModal';
+import Geolocation from 'react-native-geolocation-service';
+
 const Home = () => {
   const navigation = useNavigation();  // Get the navigation object
   const [data, setData] = useState();
+  const lastDistanceAlertAtRef = React.useRef(0);
   // const [tempSalePrint, settempSalePrint] = useState(false)
   const [tempMeneger, setTempmanager] = useState(false);
   const [tempPromotion, setTempPromotion] = useState(false);
@@ -29,6 +28,201 @@ const Home = () => {
   const [tempStoreName, setTempStoreName] = useState();
  const [modalVisibleRegistration, setModalVisibleRegistration] = useState(false);
   const route = useRoute();
+
+useEffect(() => {
+  let isMounted = true;
+  let isFetching = false;
+  const controller = new AbortController();
+
+  const AUTH_KEYS = [
+    'loginDb',
+    'is_pos_manager',
+    'username',
+    'password',
+    'storeName',
+    'storeUrl',
+    'access_token',
+  ];
+
+  // --- distance helpers ---
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const haversineMeters = (lat1, lon1, lat2, lon2) => {
+    if (
+      [lat1, lon1, lat2, lon2].some(
+        (v) => v === null || v === undefined || Number.isNaN(Number(v))
+      )
+    ) return NaN;
+
+    const R = 6371000; // meters
+    const φ1 = toRad(Number(lat1));
+    const φ2 = toRad(Number(lat2));
+    const Δφ = toRad(Number(lat2) - Number(lat1));
+    const Δλ = toRad(Number(lon2) - Number(lon1));
+
+    const a =
+      Math.sin(Δφ / 2) ** 2 +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const requestLocationPermission = async () => {
+    try {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Allow Location',
+            message: 'We need your location to verify activity.',
+            buttonPositive: 'OK',
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } else {
+        // iOS prompts automatically
+        return true;
+      }
+    } catch (e) {
+      console.warn('Permission error:', e);
+      return false;
+    }
+  };
+
+  const getLocationOnce = () =>
+    new Promise((resolve) => {
+      const timeoutId = setTimeout(() => resolve(null), 10000);
+
+      Geolocation.getCurrentPosition(
+        (pos) => {
+          clearTimeout(timeoutId);
+          const { latitude, longitude } = pos.coords || {};
+          resolve({ latitude, longitude });
+        },
+        (error) => {
+          clearTimeout(timeoutId);
+          console.warn('getCurrentPosition error:', error);
+          resolve(null);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 8000,
+          maximumAge: 0,
+          forceRequestLocation: true,
+          showLocationDialog: true,
+        }
+      );
+    });
+
+  const checkAuth = async () => {
+    if (isFetching) return;
+    isFetching = true;
+
+    try {
+      const storeUrl = await AsyncStorage.getItem('storeUrl');
+     const is_location_feature_enabled = await AsyncStorage.getItem('is_location_feature_enabled');  
+      const accessToken = await AsyncStorage.getItem('access_token');
+      if (!storeUrl || !accessToken) throw new Error('Missing credentials');
+      console.log("is_location_feature_enabled:",is_location_feature_enabled);
+      if(is_location_feature_enabled == 'True'){
+      const headers = new Headers();
+      headers.append('access_token', accessToken);
+      headers.append('Cookie', 'session_id');
+
+      const response = await fetch(`${storeUrl}/api/pos/app/check_authentication`, {
+        method: 'GET',
+        headers,
+        redirect: 'follow',
+        credentials: 'omit',
+        signal: controller.signal,
+      });
+
+      if (!isMounted) return;
+
+      let storelat = null;
+      let storelong = null;
+
+      if (response.status === 200) {
+        const data = await response.json();
+        console.log('auth data:', data);
+        storelat = data?.companyLocationDetail?.latitude ?? null;
+        storelong = data?.companyLocationDetail?.longitude ?? null;
+        console.log('storelat:', storelat, 'storelong:', storelong);
+      } else if (response.status === 401) {
+        console.log('check state', response.status);
+        // await AsyncStorage.multiRemove(AUTH_KEYS);
+          navigation.navigate('Login');
+      } else {
+        console.warn('Auth check returned status:', response.status);
+      }
+
+      // === Location + distance check on same cadence ===
+      const hasPerm = await requestLocationPermission();
+      if (!hasPerm) {
+        console.log('Location permission not granted');
+        return;
+      }
+
+      const loc = await getLocationOnce();
+      if (!loc) {
+        console.log('Location unavailable this cycle');
+        return;
+      }
+
+      console.log('Current location:', loc.latitude, loc.longitude);
+
+      if (storelat != null && storelong != null && response.status === 200) {
+        const distance = haversineMeters(
+          Number(loc.latitude),
+          Number(loc.longitude),
+          Number(storelat),
+          Number(storelong)
+        );
+
+        if (Number.isFinite(distance)) {
+          // 50 meters threshold
+          console.log("distance:",distance);
+          if (distance > 50) {
+            const now = Date.now();
+            // alert at most once every 2 minutes
+            if (now - lastDistanceAlertAtRef.current > 2 * 60 * 1000) {
+              Alert.alert(
+                'Out of range',
+                'you are far from store , make sure you are in store'
+              );
+              lastDistanceAlertAtRef.current = now;
+             navigation.navigate('Login');
+            }
+            console.log(`Distance from store: ${distance.toFixed(1)} m (too far)`);
+          } else {
+            console.log(`Distance from store: ${distance.toFixed(1)} m (OK)`);
+          }
+        } else {
+          console.warn('Invalid coordinates; could not compute distance');
+        }
+      } else {
+        console.warn('Store coordinates missing; skip distance check');
+      }
+   } } catch (error) {
+      if (error.name !== 'AbortError') {
+        console.error('Error fetching data:', error);
+      }
+    } finally {
+      isFetching = false;
+    }
+  };
+
+  // fire once immediately, then every 10s (your code comment said 20s)
+  checkAuth();
+  const intervalId = setInterval(checkAuth, 10000);
+
+  return () => {
+    isMounted = false;
+    controller.abort();
+    clearInterval(intervalId);
+    Geolocation.stopObserving?.();
+  };
+}, [navigation]);
 
   // console.log('routes :', route);
   let tempStoreUrl;

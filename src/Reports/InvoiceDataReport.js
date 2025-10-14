@@ -20,20 +20,23 @@ import nodata from '../images/nodata.jpg';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 import FileViewer from 'react-native-file-viewer';
-
+import {
+  IconButton,
+} from 'react-native-paper';
 // Reusable period selector WITHOUT react-native-paper (with Custom support)
 import SelectPeriodButtonRN from '../components/SelectPeriodButtonRN';
 
 const InvoiceDataReport = ({ navigation }) => {
+
   React.useLayoutEffect(() => {
     navigation.setOptions({
       headerLeft: () => (
-        <TouchableOpacity
+        <IconButton
+          icon="arrow-left"
+          size={24}
           onPress={() => navigation.goBack()}
-          style={{ paddingHorizontal: 12, paddingVertical: 6 }}
-        >
-          <Text style={{ fontSize: 16 }}>← Back</Text>
-        </TouchableOpacity>
+          color="#000"
+        />
       ),
       headerTitle: 'Invoice Data Report',
     });
@@ -54,35 +57,68 @@ const InvoiceDataReport = ({ navigation }) => {
   const [storeUrl, setStoreUrl] = useState('');
   const [invoiceNameFilter, setInvoiceNameFilter] = useState('');
   const [invoiceNumberFilter, setInvoiceNumberFilter] = useState('');
-
   const [downloadDoc, setDownloadDoc] = useState([]);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
   const [downloadItem, setDownloadItem] = useState(null);
   const [downloadItemExc, setDownloadItemExc] = useState(null);
+  const ZONE_ALIASES = {
+    'US/Eastern': 'America/New_York',
+    'US/Central': 'America/Chicago',
+    'US/Mountain': 'America/Denver',
+    'US/Arizona': 'America/Phoenix',
+    'US/Pacific': 'America/Los_Angeles',
+    'US/Alaska': 'America/Anchorage',
+    'US/Aleutian': 'America/Adak',
+    'US/Hawaii': 'Pacific/Honolulu',
+    'US/Samoa': 'Pacific/Pago_Pago',
+    'US/East-Indiana': 'America/Indiana/Indianapolis'
+  };
 
+  // Same offsets table
+  const ZONE_OFFSETS = {
+    'America/New_York': -4,
+    'America/Chicago': -5,
+    'America/Denver': -6,
+    'America/Phoenix': -7,
+    'America/Los_Angeles': -7,
+    'America/Anchorage': -8,
+    'America/Adak': -9,
+    'Pacific/Honolulu': -10,
+    'Pacific/Pago_Pago': -11,
+    'America/Indiana/Indianapolis': -4,
+    'Asia/Kolkata': 5.5,
+    'Europe/London': 1,
+    'UTC': 0
+  };
   // ==== INIT: set timezone + default today range ====
   useEffect(() => {
     const init = async () => {
       try {
-        const [token, url, maybeZone] = await Promise.all([
+       const [token, url, maybeZone] = await Promise.all([
           AsyncStorage.getItem('access_token'),
           AsyncStorage.getItem('storeUrl'),
           AsyncStorage.getItem('tz'),
         ]);
         setAccessToken(token || '');
         setStoreUrl(url || '');
+        
+      
+        const aliasResolved = ZONE_ALIASES[maybeZone] ?? maybeZone;
+        const safeZone = IANAZone.isValidZone(aliasResolved) ? aliasResolved : 'America/New_York';
+        setTimezone(safeZone);
 
-        let zone = maybeZone || 'America/New_York';
-        if (!IANAZone.isValidZone(zone)) zone = 'America/New_York';
-        setTimezone(zone);
+        const offset = ZONE_OFFSETS[safeZone] ?? 0;
+        const now = DateTime.utc().plus({ hours: offset });
 
-        const now = DateTime.now().setZone(zone);
-        setStartDate(now.startOf('day').toFormat('yyyy-MM-dd HH:mm:ss'));
-        setEndDate(now.endOf('day').toFormat('yyyy-MM-dd HH:mm:ss'));
+        const start = now.startOf('day').toFormat('yyyy-MM-dd HH:mm:ss');
+        const end = now.endOf('day').toFormat('yyyy-MM-dd HH:mm:ss');
+
+        setStartDate(start);
+        setEndDate(end);
         setSelectedPeriodName('Today');
-      } catch (e) {
-        console.log('Init error:', e);
+      } catch (err) {
+        console.log('Init tz/dates error', err);
       }
     };
     init();
@@ -129,9 +165,11 @@ const InvoiceDataReport = ({ navigation }) => {
         'Permission Denied',
         'Storage permission is required to download PDFs.'
       );
-
+    console.log("inv no", invoiceNo);
+    console.log("pdfUrl", pdfUrl);
     setIsDownloading(true);
-    const fileName = `invoice_${invoiceNo}.pdf`;
+    const safeInvoiceNo = invoiceNo.replace(/\//g, '_');
+    const fileName = `invoice_${safeInvoiceNo}.pdf`;
     const path =
       Platform.OS === 'android'
         ? `${RNFS.DownloadDirectoryPath}/${fileName}`
@@ -156,7 +194,8 @@ const InvoiceDataReport = ({ navigation }) => {
         'Permission Denied',
         'Storage permission is required to download files.'
       );
-    const fileName = `invoice_${invoiceNo}.xlsx`;
+    const safeInvoiceNo = invoiceNo.replace(/\//g, '_');
+    const fileName = `invoice_${safeInvoiceNo}.xlsx`;
     const path =
       Platform.OS === 'android'
         ? `${RNFS.DownloadDirectoryPath}/${fileName}`
@@ -201,6 +240,7 @@ const InvoiceDataReport = ({ navigation }) => {
   };
 
   // ====== API ======
+ // ====== API ======
   const fetchProductData = async () => {
     if (isRequestInProgress)
       return alert('A request is already in progress. Please wait.');
@@ -222,7 +262,7 @@ const InvoiceDataReport = ({ navigation }) => {
         credentials: 'omit',
         body: JSON.stringify({ start_date: startDate, end_date: endDate }),
       };
-
+     console.log("requestOptions:",requestOptions);
       const response = await fetch(
         `${storeUrl}/api/invoice_data_report`,
         requestOptions
@@ -250,7 +290,6 @@ const InvoiceDataReport = ({ navigation }) => {
       setIsRequestInProgress(false);
     }
   };
-
   // filters
   useEffect(() => {
     const filtered = data.filter(
@@ -270,6 +309,7 @@ const InvoiceDataReport = ({ navigation }) => {
       <Text style={styles.btnText}>{title}</Text>
     </TouchableOpacity>
   );
+const safeInvoiceNo = (s) => (s ?? '').toString().replace(/\//g, '_');
 
   return (
     <View style={{ flex: 1, padding: 20 }}>
@@ -292,19 +332,44 @@ const InvoiceDataReport = ({ navigation }) => {
             setEndDate(endDate);
           }}
         />
+
+      </View>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', marginTop: 20 }}>
         {selectedPeriodName ? (
-          <Text style={{ fontSize: 16, fontWeight: '600' }}>
+          <Text style={[styles.periodText, colorScheme === 'dark' && { color: 'white' }]}>
             {selectedPeriodName}
           </Text>
         ) : null}
       </View>
-
+      {startDate && endDate && (
+        <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', marginTop: 20 }}>
+          <View style={{ alignItems: 'center' }}>
+            <Text style={[{ fontSize: 16, marginBottom: 5 }, colorScheme === 'dark' && { color: 'white' }]}>
+              From
+            </Text>
+            <View style={[styles.dateBox, colorScheme === 'dark' && { borderColor: 'white' }]}>
+              <Text style={[styles.dateText, colorScheme === 'dark' && { color: 'white' }]}>
+                {startDate?.split(' ')[0]}
+              </Text>
+            </View>
+          </View>
+          <View style={{ alignItems: 'center' }}>
+            <Text style={[{ fontSize: 16, marginBottom: 5 }, colorScheme === 'dark' && { color: 'white' }]}>
+              To
+            </Text>
+            <View style={[styles.dateBox, colorScheme === 'dark' && { borderColor: 'white' }]}>
+              <Text style={[styles.dateText, colorScheme === 'dark' && { color: 'white' }]}>
+                {endDate?.split(' ')[0]}
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
       <ButtonPrimary
         title={loading ? 'Fetching Data...' : 'Fetch Latest Data'}
         onPress={fetchProductData}
         style={styles.fetchButton}
       />
-
       {data.length > 0 && (
         <>
           <TextInput
@@ -336,14 +401,14 @@ const InvoiceDataReport = ({ navigation }) => {
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
                 {downloadDoc?.filter(
                   (val) =>
-                    val.toString().includes(item.SavedInvoiceNo.toString()) &&
+                    val.toString().includes(safeInvoiceNo(item.SavedInvoiceNo)) &&
                     val.toString().includes('.pdf')
                 ).length > 0 ? (
                   <ButtonPrimary
                     title="View PDF File"
                     onPress={() =>
                       navigation.navigate('PDFViewer', {
-                        invoiceNo: item.SavedInvoiceNo,
+                        invoiceNo: safeInvoiceNo(item.SavedInvoiceNo),
                       })
                     }
                   />
@@ -360,19 +425,20 @@ const InvoiceDataReport = ({ navigation }) => {
                   />
                 )}
 
+
                 {item.ExcelDownloadLink &&
                   (downloadDoc?.filter(
                     (val) =>
                       val
                         .toString()
-                        .includes(item.SavedInvoiceNo.toString()) &&
+                        .includes(safeInvoiceNo(item.SavedInvoiceNo)) &&
                       val.toString().includes('.xlsx')
                   ).length > 0 ? (
                     <ButtonPrimary
                       title="View Excel File"
                       onPress={() =>
                         navigation.navigate('ExcelView', {
-                          invoiceNo: item.SavedInvoiceNo,
+                          invoiceNo: safeInvoiceNo(item.SavedInvoiceNo),
                         })
                       }
                     />
@@ -418,7 +484,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   btnText: { color: '#fff', fontWeight: '600' },
-  fetchButton: { marginVertical: 10, alignSelf: "center",backgroundColor:"#563C9E" },
+  fetchButton: { marginVertical: 10, alignSelf: "center", backgroundColor: "#563C9E" },
   filterInput: {
     marginBottom: 15,
     borderWidth: 1,
