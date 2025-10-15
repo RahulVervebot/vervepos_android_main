@@ -159,12 +159,12 @@ const InvoiceDataReport = ({ navigation }) => {
 
   const downloadPDF = async (pdfUrl, invoiceNo) => {
     setDownloadItem(invoiceNo);
-    const hasPermission = await checkPermission();
-    if (!hasPermission)
-      return Alert.alert(
-        'Permission Denied',
-        'Storage permission is required to download PDFs.'
-      );
+    // const hasPermission = await checkPermission();
+    // if (!hasPermission)
+    //   return Alert.alert(
+    //     'Permission Denied',
+    //     'Storage permission is required to download PDFs.'
+    //   );
     console.log("inv no", invoiceNo);
     console.log("pdfUrl", pdfUrl);
     setIsDownloading(true);
@@ -188,12 +188,12 @@ const InvoiceDataReport = ({ navigation }) => {
   const downloadExcel = async (excelUrl, invoiceNo) => {
     setIsDownloadingExcel(true);
     setDownloadItemExc(invoiceNo);
-    const hasPermission = await checkPermission();
-    if (!hasPermission)
-      return Alert.alert(
-        'Permission Denied',
-        'Storage permission is required to download files.'
-      );
+    // const hasPermission = await checkPermission();
+    // if (!hasPermission)
+    //   return Alert.alert(
+    //     'Permission Denied',
+    //     'Storage permission is required to download files.'
+    //   );
     const safeInvoiceNo = invoiceNo.replace(/\//g, '_');
     const fileName = `invoice_${safeInvoiceNo}.xlsx`;
     const path =
@@ -336,7 +336,7 @@ const safeInvoiceNo = (s) => (s ?? '').toString().replace(/\//g, '_');
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', marginTop: 20 }}>
         {selectedPeriodName ? (
-          <Text style={[styles.periodText, colorScheme === 'dark' && { color: 'white' }]}>
+          <Text style={[styles.periodText]}>
             {selectedPeriodName}
           </Text>
         ) : null}
@@ -344,21 +344,21 @@ const safeInvoiceNo = (s) => (s ?? '').toString().replace(/\//g, '_');
       {startDate && endDate && (
         <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', marginTop: 20 }}>
           <View style={{ alignItems: 'center' }}>
-            <Text style={[{ fontSize: 16, marginBottom: 5 }, colorScheme === 'dark' && { color: 'white' }]}>
+            <Text style={[{ fontSize: 16, marginBottom: 5 }]}>
               From
             </Text>
             <View style={[styles.dateBox, colorScheme === 'dark' && { borderColor: 'white' }]}>
-              <Text style={[styles.dateText, colorScheme === 'dark' && { color: 'white' }]}>
+              <Text style={[styles.dateText,]}>
                 {startDate?.split(' ')[0]}
               </Text>
             </View>
           </View>
           <View style={{ alignItems: 'center' }}>
-            <Text style={[{ fontSize: 16, marginBottom: 5 }, colorScheme === 'dark' && { color: 'white' }]}>
+            <Text style={[{ fontSize: 16, marginBottom: 5 }]}>
               To
             </Text>
             <View style={[styles.dateBox, colorScheme === 'dark' && { borderColor: 'white' }]}>
-              <Text style={[styles.dateText, colorScheme === 'dark' && { color: 'white' }]}>
+              <Text style={[styles.dateText]}>
                 {endDate?.split(' ')[0]}
               </Text>
             </View>
@@ -424,7 +424,6 @@ const safeInvoiceNo = (s) => (s ?? '').toString().replace(/\//g, '_');
                     }
                   />
                 )}
-
 
                 {item.ExcelDownloadLink &&
                   (downloadDoc?.filter(
